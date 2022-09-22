@@ -9,5 +9,5 @@ DerivedData/
 .swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
 .netrc
 # Generated
-WysiwygComposerFFI.xcframework
-Sources/WysiwygComposer/WysiwygComposer.swift
+# WysiwygComposerFFI.xcframework
+# Sources/WysiwygComposer/WysiwygComposer.swift
