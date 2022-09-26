@@ -18,12 +18,12 @@ import SwiftUI
 import OSLog
 
 /// Provides a SwiftUI displayable view for the composer UITextView component.
-struct WysiwygComposerView: UIViewRepresentable {
+public struct WysiwygComposerView: UIViewRepresentable {
     // MARK: - Internal
-    var content: WysiwygComposerContent
-    var replaceText: (NSAttributedString, NSRange, String) -> Bool
-    var select: (NSAttributedString, NSRange) -> Void
-    var didUpdateText: (UITextView) -> Void
+    public var content: WysiwygComposerContent
+    public var replaceText: (NSAttributedString, NSRange, String) -> Bool
+    public var select: (NSAttributedString, NSRange) -> Void
+    public var didUpdateText: (UITextView) -> Void
 
     func makeUIView(context: Context) -> UITextView {
         let textView = UITextView()
