@@ -128,7 +128,7 @@ extension WysiwygComposerViewModel {
     ///   - text: Text currently displayed in the composer.
     ///   - range: Range to replace.
     ///   - replacementText: Replacement text to apply.
-    func replaceText(_ text: NSAttributedString, range: NSRange, replacementText: String) -> Bool {
+    public func replaceText(_ text: NSAttributedString, range: NSRange, replacementText: String) -> Bool {
         let update: ComposerUpdate
         let shouldAcceptChange: Bool
 
@@ -157,7 +157,7 @@ extension WysiwygComposerViewModel {
     /// Notify that the text view content has changed.
     ///
     /// - Parameter textView: The composer's text view.
-    func didUpdateText(textView: UITextView) {
+    public func didUpdateText(textView: UITextView) {
         self.updateIdealHeightIfNeeded(textView)
 
         // Reconciliate
