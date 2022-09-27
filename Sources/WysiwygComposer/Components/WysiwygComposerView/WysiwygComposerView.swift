@@ -25,6 +25,7 @@ public struct WysiwygComposerView: UIViewRepresentable {
     public var select: (NSAttributedString, NSRange) -> Void
     public var didUpdateText: (UITextView) -> Void
 
+<<<<<<< HEAD
     public init(
         content: WysiwygComposerContent,
         replaceText: @escaping (NSAttributedString, NSRange, String) -> Bool,
@@ -37,6 +38,8 @@ public struct WysiwygComposerView: UIViewRepresentable {
         self.didUpdateText = didUpdateText
     }
     
+=======
+>>>>>>> 2ecad1c3fbd9aa709c3a39cb8c57ece755ab8f1d
     public func makeUIView(context: Context) -> UITextView {
         let textView = UITextView()
 
