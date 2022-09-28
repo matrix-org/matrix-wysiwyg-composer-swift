@@ -6,10 +6,10 @@ import Foundation
 // might be in a separate module, or it might be compiled inline into
 // this module. This is a bit of light hackery to work with both.
 #if canImport(WysiwygComposerFFI)
-import WysiwygComposerFFI
+    import WysiwygComposerFFI
 #endif
 
-fileprivate extension RustBuffer {
+private extension RustBuffer {
     // Allocate a new buffer, copying the contents of a `UInt8` array.
     init(bytes: [UInt8]) {
         let rbuf = bytes.withUnsafeBufferPointer { ptr in
@@ -29,7 +29,7 @@ fileprivate extension RustBuffer {
     }
 }
 
-fileprivate extension ForeignBytes {
+private extension ForeignBytes {
     init(bufferPointer: UnsafeBufferPointer<UInt8>) {
         self.init(len: Int32(bufferPointer.count), data: bufferPointer.baseAddress)
     }
@@ -42,7 +42,7 @@ fileprivate extension ForeignBytes {
 // Helper classes/extensions that don't change.
 // Someday, this will be in a libray of its own.
 
-fileprivate extension Data {
+private extension Data {
     init(rustBuffer: RustBuffer) {
         // TODO: This copies the buffer. Can we read directly from a
         // Rust buffer?
@@ -51,20 +51,20 @@ fileprivate extension Data {
 }
 
 // A helper class to read values out of a byte buffer.
-fileprivate class Reader {
+private class Reader {
     let data: Data
     var offset: Data.Index
 
     init(data: Data) {
         self.data = data
-        self.offset = 0
+        offset = 0
     }
 
     // Reads an integer at the current offset, in big-endian order, and advances
     // the offset on success. Throws if reading the integer would move the
     // offset past the end of the buffer.
     func readInt<T: FixedWidthInteger>() throws -> T {
-        let range = offset..<offset + MemoryLayout<T>.size
+        let range = offset ..< offset + MemoryLayout<T>.size
         guard data.count >= range.upperBound else {
             throw UniffiInternalError.bufferOverflow
         }
@@ -74,22 +74,22 @@ fileprivate class Reader {
             return value as! T
         }
         var value: T = 0
-        let _ = withUnsafeMutableBytes(of: &value, { data.copyBytes(to: $0, from: range)})
+        let _ = withUnsafeMutableBytes(of: &value) { data.copyBytes(to: $0, from: range) }
         offset = range.upperBound
         return value.bigEndian
     }
 
     // Reads an arbitrary number of bytes, to be used to read
     // raw bytes, this is useful when lifting strings
-    func readBytes(count: Int) throws -> Array<UInt8> {
-        let range = offset..<(offset+count)
+    func readBytes(count: Int) throws -> [UInt8] {
+        let range = offset ..< (offset + count)
         guard data.count >= range.upperBound else {
             throw UniffiInternalError.bufferOverflow
         }
         var value = [UInt8](repeating: 0, count: count)
-        value.withUnsafeMutableBufferPointer({ buffer in
+        value.withUnsafeMutableBufferPointer { buffer in
             data.copyBytes(to: buffer, from: range)
-        })
+        }
         offset = range.upperBound
         return value
     }
@@ -114,13 +114,13 @@ fileprivate class Reader {
 }
 
 // A helper class to write values into a byte buffer.
-fileprivate class Writer {
+private class Writer {
     var bytes: [UInt8]
     var offset: Array<UInt8>.Index
 
     init() {
-        self.bytes = []
-        self.offset = 0
+        bytes = []
+        offset = 0
     }
 
     func writeBytes<S>(_ byteArr: S) where S: Sequence, S.Element == UInt8 {
@@ -149,7 +149,7 @@ fileprivate class Writer {
 
 // Protocol for types that transfer other types across the FFI. This is
 // analogous go the Rust trait of the same name.
-fileprivate protocol FfiConverter {
+private protocol FfiConverter {
     associatedtype FfiType
     associatedtype SwiftType
 
@@ -160,7 +160,7 @@ fileprivate protocol FfiConverter {
 }
 
 // Types conforming to `Primitive` pass themselves directly over the FFI.
-fileprivate protocol FfiConverterPrimitive: FfiConverter where FfiType == SwiftType { }
+private protocol FfiConverterPrimitive: FfiConverter where FfiType == SwiftType {}
 
 extension FfiConverterPrimitive {
     static func lift(_ value: FfiType) throws -> SwiftType {
@@ -174,7 +174,7 @@ extension FfiConverterPrimitive {
 
 // Types conforming to `FfiConverterRustBuffer` lift and lower into a `RustBuffer`.
 // Used for complex types where it's hard to write a custom lift/lower.
-fileprivate protocol FfiConverterRustBuffer: FfiConverter where FfiType == RustBuffer {}
+private protocol FfiConverterRustBuffer: FfiConverter where FfiType == RustBuffer {}
 
 extension FfiConverterRustBuffer {
     static func lift(_ buf: RustBuffer) throws -> SwiftType {
@@ -188,14 +188,15 @@ extension FfiConverterRustBuffer {
     }
 
     static func lower(_ value: SwiftType) -> RustBuffer {
-          let writer = Writer()
-          write(value, into: writer)
-          return RustBuffer(bytes: writer.bytes)
+        let writer = Writer()
+        write(value, into: writer)
+        return RustBuffer(bytes: writer.bytes)
     }
 }
+
 // An error type for FFI errors. These errors occur at the UniFFI level, not
 // the library level.
-fileprivate enum UniffiInternalError: LocalizedError {
+private enum UniffiInternalError: LocalizedError {
     case bufferOverflow
     case incompleteData
     case unexpectedOptionalTag
@@ -221,15 +222,15 @@ fileprivate enum UniffiInternalError: LocalizedError {
     }
 }
 
-fileprivate let CALL_SUCCESS: Int8 = 0
-fileprivate let CALL_ERROR: Int8 = 1
-fileprivate let CALL_PANIC: Int8 = 2
+private let CALL_SUCCESS: Int8 = 0
+private let CALL_ERROR: Int8 = 1
+private let CALL_PANIC: Int8 = 2
 
-fileprivate extension RustCallStatus {
+private extension RustCallStatus {
     init() {
         self.init(
             code: CALL_SUCCESS,
-            errorBuf: RustBuffer.init(
+            errorBuf: RustBuffer(
                 capacity: 0,
                 len: 0,
                 data: nil
@@ -246,42 +247,41 @@ private func rustCall<T>(_ callback: (UnsafeMutablePointer<RustCallStatus>) -> T
 }
 
 private func rustCallWithError<T, F: FfiConverter>
-    (_ errorFfiConverter: F.Type, _ callback: (UnsafeMutablePointer<RustCallStatus>) -> T) throws -> T
+(_ errorFfiConverter: F.Type, _ callback: (UnsafeMutablePointer<RustCallStatus>) -> T) throws -> T
     where F.SwiftType: Error, F.FfiType == RustBuffer
-    {
-    try makeRustCall(callback, errorHandler: { return try errorFfiConverter.lift($0) })
+{
+    try makeRustCall(callback, errorHandler: { try errorFfiConverter.lift($0) })
 }
 
 private func makeRustCall<T>(_ callback: (UnsafeMutablePointer<RustCallStatus>) -> T, errorHandler: (RustBuffer) throws -> Error) throws -> T {
-    var callStatus = RustCallStatus.init()
+    var callStatus = RustCallStatus()
     let returnedVal = callback(&callStatus)
     switch callStatus.code {
-        case CALL_SUCCESS:
-            return returnedVal
+    case CALL_SUCCESS:
+        return returnedVal
 
-        case CALL_ERROR:
-            throw try errorHandler(callStatus.errorBuf)
+    case CALL_ERROR:
+        throw try errorHandler(callStatus.errorBuf)
 
-        case CALL_PANIC:
-            // When the rust code sees a panic, it tries to construct a RustBuffer
-            // with the message.  But if that code panics, then it just sends back
-            // an empty buffer.
-            if callStatus.errorBuf.len > 0 {
-                throw UniffiInternalError.rustPanic(try FfiConverterString.lift(callStatus.errorBuf))
-            } else {
-                callStatus.errorBuf.deallocate()
-                throw UniffiInternalError.rustPanic("Rust panic")
-            }
+    case CALL_PANIC:
+        // When the rust code sees a panic, it tries to construct a RustBuffer
+        // with the message.  But if that code panics, then it just sends back
+        // an empty buffer.
+        if callStatus.errorBuf.len > 0 {
+            throw UniffiInternalError.rustPanic(try FfiConverterString.lift(callStatus.errorBuf))
+        } else {
+            callStatus.errorBuf.deallocate()
+            throw UniffiInternalError.rustPanic("Rust panic")
+        }
 
-        default:
-            throw UniffiInternalError.unexpectedRustCallStatusCode
+    default:
+        throw UniffiInternalError.unexpectedRustCallStatusCode
     }
 }
 
 // Public interface members begin here.
 
-
-fileprivate struct FfiConverterUInt16: FfiConverterPrimitive {
+private struct FfiConverterUInt16: FfiConverterPrimitive {
     typealias FfiType = UInt16
     typealias SwiftType = UInt16
 
@@ -294,7 +294,7 @@ fileprivate struct FfiConverterUInt16: FfiConverterPrimitive {
     }
 }
 
-fileprivate struct FfiConverterUInt32: FfiConverterPrimitive {
+private struct FfiConverterUInt32: FfiConverterPrimitive {
     typealias FfiType = UInt32
     typealias SwiftType = UInt32
 
@@ -307,7 +307,7 @@ fileprivate struct FfiConverterUInt32: FfiConverterPrimitive {
     }
 }
 
-fileprivate struct FfiConverterString: FfiConverter {
+private struct FfiConverterString: FfiConverter {
     typealias SwiftType = String
     typealias FfiType = RustBuffer
 
@@ -345,31 +345,29 @@ fileprivate struct FfiConverterString: FfiConverter {
     }
 }
 
-
 public protocol ComposerModelProtocol {
-    func replaceAllHtml(html: String)  -> ComposerUpdate
-    func select(startUtf16Codeunit: UInt32, endUtf16Codeunit: UInt32)  -> ComposerUpdate
-    func replaceText(newText: String)  -> ComposerUpdate
-    func replaceTextIn(newText: String, start: UInt32, end: UInt32)  -> ComposerUpdate
-    func backspace()  -> ComposerUpdate
-    func delete()  -> ComposerUpdate
-    func deleteIn(start: UInt32, end: UInt32)  -> ComposerUpdate
-    func enter()  -> ComposerUpdate
-    func bold()  -> ComposerUpdate
-    func italic()  -> ComposerUpdate
-    func strikeThrough()  -> ComposerUpdate
-    func underline()  -> ComposerUpdate
-    func inlineCode()  -> ComposerUpdate
-    func orderedList()  -> ComposerUpdate
-    func unorderedList()  -> ComposerUpdate
-    func undo()  -> ComposerUpdate
-    func redo()  -> ComposerUpdate
-    func indent()  -> ComposerUpdate
-    func unIndent()  -> ComposerUpdate
-    func setLink(newText: String)  -> ComposerUpdate
-    func toTree()  -> String
-    func dumpState()  -> ComposerState
-    
+    func replaceAllHtml(html: String) -> ComposerUpdate
+    func select(startUtf16Codeunit: UInt32, endUtf16Codeunit: UInt32) -> ComposerUpdate
+    func replaceText(newText: String) -> ComposerUpdate
+    func replaceTextIn(newText: String, start: UInt32, end: UInt32) -> ComposerUpdate
+    func backspace() -> ComposerUpdate
+    func delete() -> ComposerUpdate
+    func deleteIn(start: UInt32, end: UInt32) -> ComposerUpdate
+    func enter() -> ComposerUpdate
+    func bold() -> ComposerUpdate
+    func italic() -> ComposerUpdate
+    func strikeThrough() -> ComposerUpdate
+    func underline() -> ComposerUpdate
+    func inlineCode() -> ComposerUpdate
+    func orderedList() -> ComposerUpdate
+    func unorderedList() -> ComposerUpdate
+    func undo() -> ComposerUpdate
+    func redo() -> ComposerUpdate
+    func indent() -> ComposerUpdate
+    func unIndent() -> ComposerUpdate
+    func setLink(newText: String) -> ComposerUpdate
+    func toTree() -> String
+    func dumpState() -> ComposerState
 }
 
 public class ComposerModel: ComposerModelProtocol {
@@ -386,244 +384,216 @@ public class ComposerModel: ComposerModelProtocol {
         try! rustCall { ffi_wysiwyg_composer_65e4_ComposerModel_object_free(pointer, $0) }
     }
 
-    
+    public func replaceAllHtml(html: String) -> ComposerUpdate {
+        return try! FfiConverterTypeComposerUpdate.lift(
+            try!
+                rustCall {
+                    wysiwyg_composer_65e4_ComposerModel_replace_all_html(self.pointer,
+                                                                         FfiConverterString.lower(html), $0)
+                }
+        )
+    }
 
-    
-    public func replaceAllHtml(html: String)  -> ComposerUpdate {
+    public func select(startUtf16Codeunit: UInt32, endUtf16Codeunit: UInt32) -> ComposerUpdate {
         return try! FfiConverterTypeComposerUpdate.lift(
             try!
-    rustCall() {
-    
-    wysiwyg_composer_65e4_ComposerModel_replace_all_html(self.pointer, 
-        FfiConverterString.lower(html), $0
-    )
-}
+                rustCall {
+                    wysiwyg_composer_65e4_ComposerModel_select(self.pointer,
+                                                               FfiConverterUInt32.lower(startUtf16Codeunit),
+                                                               FfiConverterUInt32.lower(endUtf16Codeunit), $0)
+                }
         )
     }
-    public func select(startUtf16Codeunit: UInt32, endUtf16Codeunit: UInt32)  -> ComposerUpdate {
+
+    public func replaceText(newText: String) -> ComposerUpdate {
         return try! FfiConverterTypeComposerUpdate.lift(
             try!
-    rustCall() {
-    
-    wysiwyg_composer_65e4_ComposerModel_select(self.pointer, 
-        FfiConverterUInt32.lower(startUtf16Codeunit), 
-        FfiConverterUInt32.lower(endUtf16Codeunit), $0
-    )
-}
+                rustCall {
+                    wysiwyg_composer_65e4_ComposerModel_replace_text(self.pointer,
+                                                                     FfiConverterString.lower(newText), $0)
+                }
         )
     }
-    public func replaceText(newText: String)  -> ComposerUpdate {
+
+    public func replaceTextIn(newText: String, start: UInt32, end: UInt32) -> ComposerUpdate {
         return try! FfiConverterTypeComposerUpdate.lift(
             try!
-    rustCall() {
-    
-    wysiwyg_composer_65e4_ComposerModel_replace_text(self.pointer, 
-        FfiConverterString.lower(newText), $0
-    )
-}
+                rustCall {
+                    wysiwyg_composer_65e4_ComposerModel_replace_text_in(self.pointer,
+                                                                        FfiConverterString.lower(newText),
+                                                                        FfiConverterUInt32.lower(start),
+                                                                        FfiConverterUInt32.lower(end), $0)
+                }
         )
     }
-    public func replaceTextIn(newText: String, start: UInt32, end: UInt32)  -> ComposerUpdate {
+
+    public func backspace() -> ComposerUpdate {
         return try! FfiConverterTypeComposerUpdate.lift(
             try!
-    rustCall() {
-    
-    wysiwyg_composer_65e4_ComposerModel_replace_text_in(self.pointer, 
-        FfiConverterString.lower(newText), 
-        FfiConverterUInt32.lower(start), 
-        FfiConverterUInt32.lower(end), $0
-    )
-}
+                rustCall {
+                    wysiwyg_composer_65e4_ComposerModel_backspace(self.pointer, $0)
+                }
         )
     }
-    public func backspace()  -> ComposerUpdate {
+
+    public func delete() -> ComposerUpdate {
         return try! FfiConverterTypeComposerUpdate.lift(
             try!
-    rustCall() {
-    
-    wysiwyg_composer_65e4_ComposerModel_backspace(self.pointer, $0
-    )
-}
+                rustCall {
+                    wysiwyg_composer_65e4_ComposerModel_delete(self.pointer, $0)
+                }
         )
     }
-    public func delete()  -> ComposerUpdate {
+
+    public func deleteIn(start: UInt32, end: UInt32) -> ComposerUpdate {
         return try! FfiConverterTypeComposerUpdate.lift(
             try!
-    rustCall() {
-    
-    wysiwyg_composer_65e4_ComposerModel_delete(self.pointer, $0
-    )
-}
+                rustCall {
+                    wysiwyg_composer_65e4_ComposerModel_delete_in(self.pointer,
+                                                                  FfiConverterUInt32.lower(start),
+                                                                  FfiConverterUInt32.lower(end), $0)
+                }
         )
     }
-    public func deleteIn(start: UInt32, end: UInt32)  -> ComposerUpdate {
+
+    public func enter() -> ComposerUpdate {
         return try! FfiConverterTypeComposerUpdate.lift(
             try!
-    rustCall() {
-    
-    wysiwyg_composer_65e4_ComposerModel_delete_in(self.pointer, 
-        FfiConverterUInt32.lower(start), 
-        FfiConverterUInt32.lower(end), $0
-    )
-}
+                rustCall {
+                    wysiwyg_composer_65e4_ComposerModel_enter(self.pointer, $0)
+                }
         )
     }
-    public func enter()  -> ComposerUpdate {
+
+    public func bold() -> ComposerUpdate {
         return try! FfiConverterTypeComposerUpdate.lift(
             try!
-    rustCall() {
-    
-    wysiwyg_composer_65e4_ComposerModel_enter(self.pointer, $0
-    )
-}
+                rustCall {
+                    wysiwyg_composer_65e4_ComposerModel_bold(self.pointer, $0)
+                }
         )
     }
-    public func bold()  -> ComposerUpdate {
+
+    public func italic() -> ComposerUpdate {
         return try! FfiConverterTypeComposerUpdate.lift(
             try!
-    rustCall() {
-    
-    wysiwyg_composer_65e4_ComposerModel_bold(self.pointer, $0
-    )
-}
+                rustCall {
+                    wysiwyg_composer_65e4_ComposerModel_italic(self.pointer, $0)
+                }
         )
     }
-    public func italic()  -> ComposerUpdate {
+
+    public func strikeThrough() -> ComposerUpdate {
         return try! FfiConverterTypeComposerUpdate.lift(
             try!
-    rustCall() {
-    
-    wysiwyg_composer_65e4_ComposerModel_italic(self.pointer, $0
-    )
-}
+                rustCall {
+                    wysiwyg_composer_65e4_ComposerModel_strike_through(self.pointer, $0)
+                }
         )
     }
-    public func strikeThrough()  -> ComposerUpdate {
+
+    public func underline() -> ComposerUpdate {
         return try! FfiConverterTypeComposerUpdate.lift(
             try!
-    rustCall() {
-    
-    wysiwyg_composer_65e4_ComposerModel_strike_through(self.pointer, $0
-    )
-}
+                rustCall {
+                    wysiwyg_composer_65e4_ComposerModel_underline(self.pointer, $0)
+                }
         )
     }
-    public func underline()  -> ComposerUpdate {
+
+    public func inlineCode() -> ComposerUpdate {
         return try! FfiConverterTypeComposerUpdate.lift(
             try!
-    rustCall() {
-    
-    wysiwyg_composer_65e4_ComposerModel_underline(self.pointer, $0
-    )
-}
+                rustCall {
+                    wysiwyg_composer_65e4_ComposerModel_inline_code(self.pointer, $0)
+                }
         )
     }
-    public func inlineCode()  -> ComposerUpdate {
+
+    public func orderedList() -> ComposerUpdate {
         return try! FfiConverterTypeComposerUpdate.lift(
             try!
-    rustCall() {
-    
-    wysiwyg_composer_65e4_ComposerModel_inline_code(self.pointer, $0
-    )
-}
+                rustCall {
+                    wysiwyg_composer_65e4_ComposerModel_ordered_list(self.pointer, $0)
+                }
         )
     }
-    public func orderedList()  -> ComposerUpdate {
+
+    public func unorderedList() -> ComposerUpdate {
         return try! FfiConverterTypeComposerUpdate.lift(
             try!
-    rustCall() {
-    
-    wysiwyg_composer_65e4_ComposerModel_ordered_list(self.pointer, $0
-    )
-}
+                rustCall {
+                    wysiwyg_composer_65e4_ComposerModel_unordered_list(self.pointer, $0)
+                }
         )
     }
-    public func unorderedList()  -> ComposerUpdate {
+
+    public func undo() -> ComposerUpdate {
         return try! FfiConverterTypeComposerUpdate.lift(
             try!
-    rustCall() {
-    
-    wysiwyg_composer_65e4_ComposerModel_unordered_list(self.pointer, $0
-    )
-}
+                rustCall {
+                    wysiwyg_composer_65e4_ComposerModel_undo(self.pointer, $0)
+                }
         )
     }
-    public func undo()  -> ComposerUpdate {
+
+    public func redo() -> ComposerUpdate {
         return try! FfiConverterTypeComposerUpdate.lift(
             try!
-    rustCall() {
-    
-    wysiwyg_composer_65e4_ComposerModel_undo(self.pointer, $0
-    )
-}
+                rustCall {
+                    wysiwyg_composer_65e4_ComposerModel_redo(self.pointer, $0)
+                }
         )
     }
-    public func redo()  -> ComposerUpdate {
+
+    public func indent() -> ComposerUpdate {
         return try! FfiConverterTypeComposerUpdate.lift(
             try!
-    rustCall() {
-    
-    wysiwyg_composer_65e4_ComposerModel_redo(self.pointer, $0
-    )
-}
+                rustCall {
+                    wysiwyg_composer_65e4_ComposerModel_indent(self.pointer, $0)
+                }
         )
     }
-    public func indent()  -> ComposerUpdate {
+
+    public func unIndent() -> ComposerUpdate {
         return try! FfiConverterTypeComposerUpdate.lift(
             try!
-    rustCall() {
-    
-    wysiwyg_composer_65e4_ComposerModel_indent(self.pointer, $0
-    )
-}
+                rustCall {
+                    wysiwyg_composer_65e4_ComposerModel_un_indent(self.pointer, $0)
+                }
         )
     }
-    public func unIndent()  -> ComposerUpdate {
+
+    public func setLink(newText: String) -> ComposerUpdate {
         return try! FfiConverterTypeComposerUpdate.lift(
             try!
-    rustCall() {
-    
-    wysiwyg_composer_65e4_ComposerModel_un_indent(self.pointer, $0
-    )
-}
+                rustCall {
+                    wysiwyg_composer_65e4_ComposerModel_set_link(self.pointer,
+                                                                 FfiConverterString.lower(newText), $0)
+                }
         )
     }
-    public func setLink(newText: String)  -> ComposerUpdate {
-        return try! FfiConverterTypeComposerUpdate.lift(
-            try!
-    rustCall() {
-    
-    wysiwyg_composer_65e4_ComposerModel_set_link(self.pointer, 
-        FfiConverterString.lower(newText), $0
-    )
-}
-        )
-    }
-    public func toTree()  -> String {
+
+    public func toTree() -> String {
         return try! FfiConverterString.lift(
             try!
-    rustCall() {
-    
-    wysiwyg_composer_65e4_ComposerModel_to_tree(self.pointer, $0
-    )
-}
+                rustCall {
+                    wysiwyg_composer_65e4_ComposerModel_to_tree(self.pointer, $0)
+                }
         )
     }
-    public func dumpState()  -> ComposerState {
+
+    public func dumpState() -> ComposerState {
         return try! FfiConverterTypeComposerState.lift(
             try!
-    rustCall() {
-    
-    wysiwyg_composer_65e4_ComposerModel_dump_state(self.pointer, $0
-    )
-}
+                rustCall {
+                    wysiwyg_composer_65e4_ComposerModel_dump_state(self.pointer, $0)
+                }
         )
     }
-    
 }
 
-
-fileprivate struct FfiConverterTypeComposerModel: FfiConverter {
+private struct FfiConverterTypeComposerModel: FfiConverter {
     typealias FfiType = UnsafeMutableRawPointer
     typealias SwiftType = ComposerModel
 
@@ -632,7 +602,7 @@ fileprivate struct FfiConverterTypeComposerModel: FfiConverter {
         // The Rust code won't compile if a pointer won't fit in a UInt64.
         // We have to go via `UInt` because that's the thing that's the size of a pointer.
         let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
-        if (ptr == nil) {
+        if ptr == nil {
             throw UniffiInternalError.unexpectedNullPointer
         }
         return try lift(ptr!)
@@ -653,11 +623,9 @@ fileprivate struct FfiConverterTypeComposerModel: FfiConverter {
     }
 }
 
-
 public protocol ComposerUpdateProtocol {
-    func textUpdate()  -> TextUpdate
-    func menuState()  -> MenuState
-    
+    func textUpdate() -> TextUpdate
+    func menuState() -> MenuState
 }
 
 public class ComposerUpdate: ComposerUpdateProtocol {
@@ -674,34 +642,26 @@ public class ComposerUpdate: ComposerUpdateProtocol {
         try! rustCall { ffi_wysiwyg_composer_65e4_ComposerUpdate_object_free(pointer, $0) }
     }
 
-    
-
-    
-    public func textUpdate()  -> TextUpdate {
+    public func textUpdate() -> TextUpdate {
         return try! FfiConverterTypeTextUpdate.lift(
             try!
-    rustCall() {
-    
-    wysiwyg_composer_65e4_ComposerUpdate_text_update(self.pointer, $0
-    )
-}
+                rustCall {
+                    wysiwyg_composer_65e4_ComposerUpdate_text_update(self.pointer, $0)
+                }
         )
     }
-    public func menuState()  -> MenuState {
+
+    public func menuState() -> MenuState {
         return try! FfiConverterTypeMenuState.lift(
             try!
-    rustCall() {
-    
-    wysiwyg_composer_65e4_ComposerUpdate_menu_state(self.pointer, $0
-    )
-}
+                rustCall {
+                    wysiwyg_composer_65e4_ComposerUpdate_menu_state(self.pointer, $0)
+                }
         )
     }
-    
 }
 
-
-fileprivate struct FfiConverterTypeComposerUpdate: FfiConverter {
+private struct FfiConverterTypeComposerUpdate: FfiConverter {
     typealias FfiType = UnsafeMutableRawPointer
     typealias SwiftType = ComposerUpdate
 
@@ -710,7 +670,7 @@ fileprivate struct FfiConverterTypeComposerUpdate: FfiConverter {
         // The Rust code won't compile if a pointer won't fit in a UInt64.
         // We have to go via `UInt` because that's the thing that's the size of a pointer.
         let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
-        if (ptr == nil) {
+        if ptr == nil {
             throw UniffiInternalError.unexpectedNullPointer
         }
         return try lift(ptr!)
@@ -731,7 +691,6 @@ fileprivate struct FfiConverterTypeComposerUpdate: FfiConverter {
     }
 }
 
-
 public struct ComposerState {
     public var html: [UInt16]
     public var start: UInt32
@@ -746,9 +705,8 @@ public struct ComposerState {
     }
 }
 
-
 extension ComposerState: Equatable, Hashable {
-    public static func ==(lhs: ComposerState, rhs: ComposerState) -> Bool {
+    public static func == (lhs: ComposerState, rhs: ComposerState) -> Bool {
         if lhs.html != rhs.html {
             return false
         }
@@ -768,12 +726,11 @@ extension ComposerState: Equatable, Hashable {
     }
 }
 
-
-fileprivate struct FfiConverterTypeComposerState: FfiConverterRustBuffer {
+private struct FfiConverterTypeComposerState: FfiConverterRustBuffer {
     fileprivate static func read(from buf: Reader) throws -> ComposerState {
         return try ComposerState(
-            html: FfiConverterSequenceUInt16.read(from: buf), 
-            start: FfiConverterUInt32.read(from: buf), 
+            html: FfiConverterSequenceUInt16.read(from: buf),
+            start: FfiConverterUInt32.read(from: buf),
             end: FfiConverterUInt32.read(from: buf)
         )
     }
@@ -788,7 +745,6 @@ fileprivate struct FfiConverterTypeComposerState: FfiConverterRustBuffer {
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 public enum ComposerAction {
-    
     case bold
     case italic
     case strikeThrough
@@ -803,209 +759,175 @@ public enum ComposerAction {
     case unIndent
 }
 
-fileprivate struct FfiConverterTypeComposerAction: FfiConverterRustBuffer {
+private struct FfiConverterTypeComposerAction: FfiConverterRustBuffer {
     typealias SwiftType = ComposerAction
 
     static func read(from buf: Reader) throws -> ComposerAction {
         let variant: Int32 = try buf.readInt()
         switch variant {
-        
         case 1: return .bold
-        
+
         case 2: return .italic
-        
+
         case 3: return .strikeThrough
-        
+
         case 4: return .underline
-        
+
         case 5: return .inlineCode
-        
+
         case 6: return .link
-        
+
         case 7: return .undo
-        
+
         case 8: return .redo
-        
+
         case 9: return .orderedList
-        
+
         case 10: return .unorderedList
-        
+
         case 11: return .indent
-        
+
         case 12: return .unIndent
-        
+
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
     static func write(_ value: ComposerAction, into buf: Writer) {
         switch value {
-        
-        
         case .bold:
             buf.writeInt(Int32(1))
-        
-        
+
         case .italic:
             buf.writeInt(Int32(2))
-        
-        
+
         case .strikeThrough:
             buf.writeInt(Int32(3))
-        
-        
+
         case .underline:
             buf.writeInt(Int32(4))
-        
-        
+
         case .inlineCode:
             buf.writeInt(Int32(5))
-        
-        
+
         case .link:
             buf.writeInt(Int32(6))
-        
-        
+
         case .undo:
             buf.writeInt(Int32(7))
-        
-        
+
         case .redo:
             buf.writeInt(Int32(8))
-        
-        
+
         case .orderedList:
             buf.writeInt(Int32(9))
-        
-        
+
         case .unorderedList:
             buf.writeInt(Int32(10))
-        
-        
+
         case .indent:
             buf.writeInt(Int32(11))
-        
-        
+
         case .unIndent:
             buf.writeInt(Int32(12))
-        
         }
     }
 }
 
-
 extension ComposerAction: Equatable, Hashable {}
-
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 public enum MenuState {
-    
     case keep
     case update(reversedActions: [ComposerAction], disabledActions: [ComposerAction])
 }
 
-fileprivate struct FfiConverterTypeMenuState: FfiConverterRustBuffer {
+private struct FfiConverterTypeMenuState: FfiConverterRustBuffer {
     typealias SwiftType = MenuState
 
     static func read(from buf: Reader) throws -> MenuState {
         let variant: Int32 = try buf.readInt()
         switch variant {
-        
         case 1: return .keep
-        
+
         case 2: return .update(
-            reversedActions: try FfiConverterSequenceTypeComposerAction.read(from: buf), 
-            disabledActions: try FfiConverterSequenceTypeComposerAction.read(from: buf)
-        )
-        
+                reversedActions: try FfiConverterSequenceTypeComposerAction.read(from: buf),
+                disabledActions: try FfiConverterSequenceTypeComposerAction.read(from: buf)
+            )
+
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
     static func write(_ value: MenuState, into buf: Writer) {
         switch value {
-        
-        
         case .keep:
             buf.writeInt(Int32(1))
-        
-        
-        case let .update(reversedActions,disabledActions):
+
+        case let .update(reversedActions, disabledActions):
             buf.writeInt(Int32(2))
             FfiConverterSequenceTypeComposerAction.write(reversedActions, into: buf)
             FfiConverterSequenceTypeComposerAction.write(disabledActions, into: buf)
-            
         }
     }
 }
 
-
 extension MenuState: Equatable, Hashable {}
-
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 public enum TextUpdate {
-    
     case keep
     case replaceAll(replacementHtml: [UInt16], startUtf16Codeunit: UInt32, endUtf16Codeunit: UInt32)
     case select(startUtf16Codeunit: UInt32, endUtf16Codeunit: UInt32)
 }
 
-fileprivate struct FfiConverterTypeTextUpdate: FfiConverterRustBuffer {
+private struct FfiConverterTypeTextUpdate: FfiConverterRustBuffer {
     typealias SwiftType = TextUpdate
 
     static func read(from buf: Reader) throws -> TextUpdate {
         let variant: Int32 = try buf.readInt()
         switch variant {
-        
         case 1: return .keep
-        
+
         case 2: return .replaceAll(
-            replacementHtml: try FfiConverterSequenceUInt16.read(from: buf), 
-            startUtf16Codeunit: try FfiConverterUInt32.read(from: buf), 
-            endUtf16Codeunit: try FfiConverterUInt32.read(from: buf)
-        )
-        
+                replacementHtml: try FfiConverterSequenceUInt16.read(from: buf),
+                startUtf16Codeunit: try FfiConverterUInt32.read(from: buf),
+                endUtf16Codeunit: try FfiConverterUInt32.read(from: buf)
+            )
+
         case 3: return .select(
-            startUtf16Codeunit: try FfiConverterUInt32.read(from: buf), 
-            endUtf16Codeunit: try FfiConverterUInt32.read(from: buf)
-        )
-        
+                startUtf16Codeunit: try FfiConverterUInt32.read(from: buf),
+                endUtf16Codeunit: try FfiConverterUInt32.read(from: buf)
+            )
+
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
     static func write(_ value: TextUpdate, into buf: Writer) {
         switch value {
-        
-        
         case .keep:
             buf.writeInt(Int32(1))
-        
-        
-        case let .replaceAll(replacementHtml,startUtf16Codeunit,endUtf16Codeunit):
+
+        case let .replaceAll(replacementHtml, startUtf16Codeunit, endUtf16Codeunit):
             buf.writeInt(Int32(2))
             FfiConverterSequenceUInt16.write(replacementHtml, into: buf)
             FfiConverterUInt32.write(startUtf16Codeunit, into: buf)
             FfiConverterUInt32.write(endUtf16Codeunit, into: buf)
-            
-        
-        case let .select(startUtf16Codeunit,endUtf16Codeunit):
+
+        case let .select(startUtf16Codeunit, endUtf16Codeunit):
             buf.writeInt(Int32(3))
             FfiConverterUInt32.write(startUtf16Codeunit, into: buf)
             FfiConverterUInt32.write(endUtf16Codeunit, into: buf)
-            
         }
     }
 }
 
-
 extension TextUpdate: Equatable, Hashable {}
 
-
-fileprivate struct FfiConverterSequenceUInt16: FfiConverterRustBuffer {
+private struct FfiConverterSequenceUInt16: FfiConverterRustBuffer {
     typealias SwiftType = [UInt16]
 
     static func write(_ value: [UInt16], into buf: Writer) {
@@ -1027,7 +949,7 @@ fileprivate struct FfiConverterSequenceUInt16: FfiConverterRustBuffer {
     }
 }
 
-fileprivate struct FfiConverterSequenceTypeComposerAction: FfiConverterRustBuffer {
+private struct FfiConverterSequenceTypeComposerAction: FfiConverterRustBuffer {
     typealias SwiftType = [ComposerAction]
 
     static func write(_ value: [ComposerAction], into buf: Writer) {
@@ -1049,18 +971,15 @@ fileprivate struct FfiConverterSequenceTypeComposerAction: FfiConverterRustBuffe
     }
 }
 
-public func newComposerModel()  -> ComposerModel {
+public func newComposerModel() -> ComposerModel {
     return try! FfiConverterTypeComposerModel.lift(
         try!
-    
-    rustCall() {
-    
-    wysiwyg_composer_65e4_new_composer_model($0)
-}
+
+            rustCall {
+                wysiwyg_composer_65e4_new_composer_model($0)
+            }
     )
 }
-
-
 
 /**
  * Top level initializers and tear down methods.
@@ -1071,6 +990,5 @@ public enum WysiwygComposerLifecycle {
     /**
      * Initialize the FFI and Rust library. This should be only called once per application.
      */
-    func initialize() {
-    }
+    func initialize() {}
 }

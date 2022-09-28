@@ -1,6 +1,17 @@
 # rule identifiers to exclude from running
 disabled_rules:
   - todo
+  - trailing_whitespace
+  - unused_setter_value
+  - redundant_discardable_let
+  - identifier_name
+  - trailing_comma
+
+# some rules are only opt-in
+opt_in_rules:  
+  - force_unwrapping
+  - private_action
+  - explicit_init
 
 # paths to ignore during linting. Takes precedence over `included`.
 excluded:
@@ -9,6 +20,3 @@ excluded:
 line_length:
   warning: 140
   error: 200
-
-trailing_comma:
-    mandatory_comma: true
