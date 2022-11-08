@@ -19,24 +19,14 @@ import Foundation
 import OSLog
 import UIKit
 
-public protocol WysiwygComposerViewModelProtocol: AnyObject {
-    var textView: PlaceholdableTextView? { get set }
-    var content: WysiwygComposerContent { get }
-    
-    func updateCompressedHeightIfNeeded(_ textView: UITextView)
-    func replaceText(_ textView: UITextView, range: NSRange, replacementText: String) -> Bool
-    func select(text: NSAttributedString, range: NSRange)
-    func didUpdateText(textView: UITextView)
-}
-
 /// Main view model for the composer. Forwards actions to the Rust model and publishes resulting states.
 public class WysiwygComposerViewModel: WysiwygComposerViewModelProtocol, ObservableObject {
     // MARK: - Public
 
     /// The textView with placeholder support that the model manages
     public var textView: PlaceholdableTextView?
-    /// Published object for the composer content.
-    @Published public var content: WysiwygComposerContent = .init()
+    /// Published object for the composer attributed content.
+    @Published public var attributedContent: WysiwygComposerAttributedContent = .init()
     /// Published boolean for the composer empty content state.
     @Published public var isContentEmpty = true
     /// Published value for the composer required height to fit entirely without scrolling.
@@ -64,20 +54,19 @@ public class WysiwygComposerViewModel: WysiwygComposerViewModelProtocol, Observa
     public var textColor: UIColor {
         didSet {
             // In case of a color change, this will refresh the attributed text
-            let update = model.replaceAllHtml(html: content.html)
+            let update = model.setContentFromHtml(html: content.html)
             applyUpdate(update)
             updateTextView()
         }
     }
 
-    /// The composer content for plain text mode.
-    public var plainTextModeContent: WysiwygComposerContent {
-        // TODO: convert plain text to HTML
-        WysiwygComposerContent(plainText: plainText,
-                               html: "",
-                               attributed: NSAttributedString(string: plainText),
-                               attributedSelection: .init(location: plainText.utf16Length,
-                                                          length: 0))
+    /// The current composer content.
+    public var content: WysiwygComposerContent {
+        if plainTextMode {
+            _ = model.setContentFromMarkdown(markdown: plainText)
+        }
+        return WysiwygComposerContent(markdown: model.getContentAsMarkdown(),
+                                      html: model.getContentAsHtml())
     }
 
     // MARK: - Private
@@ -102,8 +91,8 @@ public class WysiwygComposerViewModel: WysiwygComposerViewModelProtocol, Observa
         self.textColor = textColor
         model = newComposerModel()
         // Publish composer empty state.
-        $content.sink { [unowned self] content in
-            self.isContentEmpty = content.plainText.isEmpty
+        $attributedContent.sink { [unowned self] content in
+            self.isContentEmpty = content.text.length == 0
         }
         .store(in: &cancellables)
         
@@ -114,21 +103,104 @@ public class WysiwygComposerViewModel: WysiwygComposerViewModelProtocol, Observa
             }
             .store(in: &cancellables)
     }
+}
 
+// MARK: - Public
+
+public extension WysiwygComposerViewModel {
     /// Apply any additional setup required.
     /// Should be called when the view appears.
-    public func setup() {
-        applyUpdate(model.replaceAllHtml(html: ""))
+    func setup() {
+        // FIXME: multiple textViews sharing the model might unwittingly clear the composer because of this.
+        applyUpdate(model.setContentFromHtml(html: ""))
         updateTextView()
     }
-    
-    /// Select given range of text within the model.
+
+    /// Apply given action to the composer.
     ///
     /// - Parameters:
-    ///   - text: Text currently displayed in the composer.
-    ///   - range: Range to select.
-    public func select(text: NSAttributedString, range: NSRange) {
+    ///   - action: Action to apply.
+    func apply(_ action: WysiwygAction) {
+        Logger.viewModel.logDebug([attributedContent.logSelection,
+                                   "Apply action: \(action)"],
+                                  functionName: #function)
+        let update = model.apply(action)
+        applyUpdate(update)
+        updateTextView()
+    }
+
+    /// Sets given HTML as the current content of the composer.
+    ///
+    /// - Parameters:
+    ///   - html: HTML content to apply
+    func setHtmlContent(_ html: String) {
+        let update = model.setContentFromHtml(html: html)
+        applyUpdate(update)
+        updateTextView()
+    }
+
+    /// Clear the content of the composer.
+    func clearContent() {
+        applyUpdate(model.clear())
+        updateTextView()
+    }
+
+    /// Returns a textual representation of the composer model as a tree.
+    func treeRepresentation() -> String {
+        model.toTree()
+    }
+}
+
+// MARK: - WysiwygComposerViewModelProtocol
+
+public extension WysiwygComposerViewModel {
+    func updateCompressedHeightIfNeeded() {
+        guard let textView = textView else { return }
+        let idealTextHeight = textView
+            .sizeThatFits(CGSize(width: textView.bounds.size.width,
+                                 height: CGFloat.greatestFiniteMagnitude)
+            )
+            .height
+
+        compressedHeight = min(maxHeight, max(minHeight, idealTextHeight))
+    }
+
+    func replaceText(range: NSRange, replacementText: String) -> Bool {
+        guard !plainTextMode else {
+            return true
+        }
+
+        let update: ComposerUpdate
+        let shouldAcceptChange: Bool
+
+        if range != attributedContent.selection {
+            select(range: range)
+        }
+
+        if attributedContent.selection.length == 0, replacementText == "" {
+            Logger.viewModel.logDebug(["Ignored an empty replacement"],
+                                      functionName: #function)
+            return false
+        }
+
+        if replacementText.count == 1, replacementText[String.Index(utf16Offset: 0, in: replacementText)].isNewline {
+            update = model.enter()
+            shouldAcceptChange = false
+        } else {
+            update = model.replaceText(newText: replacementText)
+            shouldAcceptChange = true
+        }
+
+        applyUpdate(update)
+        if !shouldAcceptChange {
+            didUpdateText()
+        }
+        return shouldAcceptChange
+    }
+
+    func select(range: NSRange) {
         do {
+            guard let text = textView?.attributedText else { return }
             // FIXME: temporary workaround as trailing newline should be ignored but are now replacing ZWSP from Rust model
             let htmlSelection = try text.htmlRange(from: range,
                                                    shouldIgnoreTrailingNewline: false)
@@ -147,136 +219,21 @@ public class WysiwygComposerViewModel: WysiwygComposerViewModelProtocol, Observa
         }
     }
 
-    /// Apply given action to the composer.
-    ///
-    /// - Parameters:
-    ///   - action: Action to apply.
-    public func apply(_ action: WysiwygAction) {
-        Logger.viewModel.logDebug([content.logAttributedSelection,
-                                   "Apply action: \(action)"],
-                                  functionName: #function)
-        let update: ComposerUpdate
-        switch action {
-        case .bold:
-            update = model.bold()
-        case .italic:
-            update = model.italic()
-        case .strikeThrough:
-            update = model.strikeThrough()
-        case .underline:
-            update = model.underline()
-        case .inlineCode:
-            update = model.inlineCode()
-        case let .link(url: url):
-            update = model.setLink(newText: url)
-        case .undo:
-            update = model.undo()
-        case .redo:
-            update = model.redo()
-        case .orderedList:
-            update = model.orderedList()
-        case .unorderedList:
-            update = model.unorderedList()
-        }
-        applyUpdate(update)
-        updateTextView()
-    }
-
-    /// Sets given HTML as the current content of the composer.
-    ///
-    /// - Parameters:
-    ///   - html: HTML content to apply
-    public func setHtmlContent(_ html: String) {
-        let update = model.replaceAllHtml(html: html)
-        applyUpdate(update)
-        updateTextView()
-    }
-
-    /// Clear the content of the composer.
-    public func clearContent() {
-        applyUpdate(model.clear())
-        updateTextView()
-    }
-
-    /// Returns a textual representation of the composer model as a tree.
-    public func treeRepresentation() -> String {
-        model.toTree()
-    }
-}
-
-// MARK: - Internal
-
-public extension WysiwygComposerViewModel {
-    /// Replace text in the model.
-    ///
-    /// - Parameters:
-    ///   - textView: TextView which currently holds the displayed text in the composer.
-    ///   - range: Range to replace.
-    ///   - replacementText: Replacement text to apply.
-    func replaceText(_ textView: UITextView, range: NSRange, replacementText: String) -> Bool {
-        guard !plainTextMode else {
-            return true
-        }
-
-        let update: ComposerUpdate
-        let shouldAcceptChange: Bool
-
-        if range != content.attributedSelection, let text = textView.attributedText {
-            select(text: text, range: range)
-        }
-
-        if content.attributedSelection.length == 0, replacementText == "" {
-            Logger.viewModel.logDebug(["Ignored an empty replacement"],
-                                      functionName: #function)
-            return false
-        }
-
-        if replacementText.count == 1, replacementText[String.Index(utf16Offset: 0, in: replacementText)].isNewline {
-            update = model.enter()
-            shouldAcceptChange = false
-        } else {
-            update = model.replaceText(newText: replacementText)
-            shouldAcceptChange = true
-        }
-
-        applyUpdate(update)
-        if !shouldAcceptChange {
-            didUpdateText(textView: textView)
-        }
-        return shouldAcceptChange
-    }
-
-    /// Notify that the text view content has changed.
-    ///
-    /// - Parameter textView: The composer's text view.
-    func didUpdateText(textView: UITextView) {
+    func didUpdateText() {
+        guard let textView = textView else { return }
         if plainTextMode {
             plainText = textView.text
             if textView.text.isEmpty != isContentEmpty {
                 isContentEmpty = textView.text.isEmpty
             }
-        } else if textView.attributedText != content.attributed {
+        } else if textView.attributedText != attributedContent.text {
             // Reconciliate
-            Logger.viewModel.logDebug(["Reconciliate from \"\(textView.text ?? "")\" to \"\(content.plainText)\""],
+            Logger.viewModel.logDebug(["Reconciliate from \"\(textView.text ?? "")\" to \"\(attributedContent.text)\""],
                                       functionName: #function)
-            textView.apply(content)
+            textView.apply(attributedContent)
         }
 
-        updateCompressedHeightIfNeeded(textView)
-    }
-    
-    /// Update the composer compressed required height if it has changed.
-    ///
-    /// - Parameters:
-    ///   - textView: The composer's text view.
-    func updateCompressedHeightIfNeeded(_ textView: UITextView) {
-        let idealTextHeight = textView
-            .sizeThatFits(CGSize(width: textView.bounds.size.width,
-                                 height: CGFloat.greatestFiniteMagnitude)
-            )
-            .height
-        
-        compressedHeight = min(maxHeight, max(minHeight, idealTextHeight))
+        updateCompressedHeightIfNeeded()
     }
 }
 
@@ -284,14 +241,13 @@ public extension WysiwygComposerViewModel {
 
 private extension WysiwygComposerViewModel {
     func updateTextView() {
-        guard let textView = textView else { return }
-        didUpdateText(textView: textView)
+        didUpdateText()
     }
     
     /// Apply given composer update to the composer.
     ///
     /// - Parameter update: ComposerUpdate to apply.
-    func applyUpdate(_ update: ComposerUpdate) {
+    func applyUpdate(_ update: ComposerUpdateProtocol) {
         switch update.textUpdate() {
         case let .replaceAll(replacementHtml: codeUnits,
                              startUtf16Codeunit: start,
@@ -323,19 +279,13 @@ private extension WysiwygComposerViewModel {
     func applyReplaceAll(codeUnits: [UInt16], start: UInt32, end: UInt32) {
         do {
             let html = String(utf16CodeUnits: codeUnits, count: codeUnits.count)
-            let htmlWithStyle = generateHtmlBodyWithStyle(htmlFragment: html)
-            let attributed = try NSAttributedString(html: htmlWithStyle).changeColor(to: textColor)
+            let attributed = try HTMLParser.parse(html: html, textColor: textColor)
             // FIXME: handle error for out of bounds index
             let htmlSelection = NSRange(location: Int(start), length: Int(end - start))
             // FIXME: temporary workaround as trailing newline should be ignored but are now replacing ZWSP from Rust model
             let textSelection = try attributed.attributedRange(from: htmlSelection,
                                                                shouldIgnoreTrailingNewline: false)
-            content = WysiwygComposerContent(
-                plainText: attributed.string,
-                html: html,
-                attributed: attributed,
-                attributedSelection: textSelection
-            )
+            attributedContent = WysiwygComposerAttributedContent(text: attributed, selection: textSelection)
             Logger.viewModel.logDebug(["Sel(att): \(textSelection)",
                                        "Sel: \(htmlSelection)",
                                        "HTML: \"\(html)\"",
@@ -358,9 +308,9 @@ private extension WysiwygComposerViewModel {
         do {
             let htmlSelection = NSRange(location: Int(start), length: Int(end - start))
             // FIXME: temporary workaround as trailing newline should be ignored but are now replacing ZWSP from Rust model
-            let textSelection = try content.attributed.attributedRange(from: htmlSelection,
-                                                                       shouldIgnoreTrailingNewline: false)
-            content.attributedSelection = textSelection
+            let textSelection = try attributedContent.text.attributedRange(from: htmlSelection,
+                                                                           shouldIgnoreTrailingNewline: false)
+            attributedContent.selection = textSelection
             Logger.viewModel.logDebug(["Sel(att): \(textSelection)",
                                        "Sel: \(htmlSelection)"],
                                       functionName: #function)
@@ -389,31 +339,17 @@ private extension WysiwygComposerViewModel {
     /// - Parameter enabled: whether plain text mode is enabled
     func updatePlainTextMode(_ enabled: Bool) {
         if enabled {
-            do {
-                let previousContent = content
-                let attributed = try NSAttributedString(html: generateHtmlBodyWithStyle(htmlFragment: previousContent.plainText)).changeColor(to: textColor)
-                clearContent()
-                guard let textView = textView else { return }
-                textView.attributedText = attributed
-            } catch {
-                Logger.viewModel.logError(
-                    [
-                        "Error: \(error.localizedDescription)",
-                        "updatePlainTextMode: enabled",
-                    ],
-                    functionName: #function
-                )
-            }
+            plainText = model.getContentAsMarkdown()
+            guard let textView = textView else { return }
+            let attributed = NSAttributedString(string: plainText,
+                                                attributes: [.font: UIFont.preferredFont(forTextStyle: .body),
+                                                             .foregroundColor: textColor])
+            textView.attributedText = attributed
         } else {
-            // TODO: convert Markdown content to HTML
-            let update = model.replaceAllHtml(html: plainText)
+            let update = model.setContentFromMarkdown(markdown: plainText)
             applyUpdate(update)
             updateTextView()
         }
-    }
-    
-    func generateHtmlBodyWithStyle(htmlFragment: String) -> String {
-        "<html><head><style>body {font-family:-apple-system;font:-apple-system-subheadline;}</style></head><body>\(htmlFragment)</body></html>"
     }
 }
 

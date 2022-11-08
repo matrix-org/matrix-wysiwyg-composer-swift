@@ -19,13 +19,18 @@ import SwiftUI
 
 /// Provides a SwiftUI displayable view for the composer UITextView component.
 public struct WysiwygComposerView: UIViewRepresentable {
-    // MARK: - Internal
+    // MARK: - Public
+
+    @Binding public var focused: Bool
+
+    // MARK: - Private
 
     private var viewModel: WysiwygComposerViewModelProtocol
     private var tintColor = Color.accentColor
     private var placeholderColor = Color(UIColor.placeholderText)
     private var placeholder: String?
-    @Binding public var focused: Bool
+
+    // MARK: - Public
 
     public init(focused: Binding<Bool>,
                 viewModel: WysiwygComposerViewModelProtocol) {
@@ -52,15 +57,15 @@ public struct WysiwygComposerView: UIViewRepresentable {
         textView.placeholderColor = UIColor(placeholderColor)
         textView.placeholder = placeholder
         viewModel.textView = textView
-        viewModel.updateCompressedHeightIfNeeded(textView)
+        viewModel.updateCompressedHeightIfNeeded()
         return textView
     }
 
     public func updateUIView(_ uiView: PlaceholdableTextView, context: Context) {
         Logger.textView.logDebug(
             [
-                viewModel.content.logAttributedSelection,
-                viewModel.content.logText,
+                viewModel.attributedContent.logSelection,
+                viewModel.attributedContent.logText,
             ],
             functionName: #function
         )
@@ -82,13 +87,13 @@ public struct WysiwygComposerView: UIViewRepresentable {
     /// Coordinates UIKit communication.
     public class Coordinator: NSObject, UITextViewDelegate, NSTextStorageDelegate {
         var focused: Binding<Bool>
-        var replaceText: (UITextView, NSRange, String) -> Bool
-        var select: (NSAttributedString, NSRange) -> Void
-        var didUpdateText: (UITextView) -> Void
+        var replaceText: (NSRange, String) -> Bool
+        var select: (NSRange) -> Void
+        var didUpdateText: () -> Void
         init(_ focused: Binding<Bool>,
-             _ replaceText: @escaping (UITextView, NSRange, String) -> Bool,
-             _ select: @escaping (NSAttributedString, NSRange) -> Void,
-             _ didUpdateText: @escaping (UITextView) -> Void) {
+             _ replaceText: @escaping (NSRange, String) -> Bool,
+             _ select: @escaping (NSRange) -> Void,
+             _ didUpdateText: @escaping () -> Void) {
             self.focused = focused
             self.replaceText = replaceText
             self.select = select
@@ -100,7 +105,7 @@ public struct WysiwygComposerView: UIViewRepresentable {
                                       textView.logText,
                                       "Replacement: \"\(text)\""],
                                      functionName: #function)
-            return replaceText(textView, range, text)
+            return replaceText(range, text)
         }
         
         public func textViewDidChange(_ textView: UITextView) {
@@ -111,7 +116,7 @@ public struct WysiwygComposerView: UIViewRepresentable {
                 ],
                 functionName: #function
             )
-            didUpdateText(textView)
+            didUpdateText()
         }
 
         public func textViewDidChangeSelection(_ textView: UITextView) {
@@ -119,7 +124,7 @@ public struct WysiwygComposerView: UIViewRepresentable {
                                      functionName: #function)
             // Fixes long press delete issue
             DispatchQueue.main.async {
-                self.select(textView.attributedText, textView.selectedRange)
+                self.select(textView.selectedRange)
             }
         }
         
@@ -134,7 +139,7 @@ public struct WysiwygComposerView: UIViewRepresentable {
 }
 
 public extension WysiwygComposerView {
-    /// Sets the tintColor of the WYSIWYG textView, if not used the default value is Color.accent.
+    /// Sets the tintColor of the rich text editor textView, if not used the default value is Color.accent.
     func tintColor(_ tintColor: Color) -> Self {
         var newSelf = self
         newSelf.tintColor = tintColor
