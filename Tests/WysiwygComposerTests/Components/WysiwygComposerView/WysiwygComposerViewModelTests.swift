@@ -23,6 +23,7 @@ final class WysiwygComposerViewModelTests: XCTestCase {
 
     override func setUpWithError() throws {
         viewModel.clearContent()
+        viewModel.textView = PlaceholdableTextView()
     }
 
     func testIsContentEmpty() throws {
@@ -31,19 +32,16 @@ final class WysiwygComposerViewModelTests: XCTestCase {
         let expectFalse = expectation(description: "Await isContentEmpty false")
         let cancellableFalse = viewModel.$isContentEmpty
             // Ignore on subscribe publish.
-            .dropFirst()
             .removeDuplicates()
+            .dropFirst()
             .sink(receiveValue: { isEmpty in
                 XCTAssertFalse(isEmpty)
                 expectFalse.fulfill()
             })
-        
-        let textView = UITextView()
-        textView.attributedText = NSAttributedString(string: "")
 
-        _ = viewModel.replaceText(textView,
-                                  range: .zero,
+        _ = viewModel.replaceText(range: .zero,
                                   replacementText: "Test")
+        viewModel.textView?.attributedText = viewModel.attributedContent.text
 
         wait(for: [expectFalse], timeout: 2.0)
         cancellableFalse.cancel()
@@ -51,52 +49,58 @@ final class WysiwygComposerViewModelTests: XCTestCase {
         let expectTrue = expectation(description: "Await isContentEmpty true")
         let cancellableTrue = viewModel.$isContentEmpty
             // Ignore on subscribe publish.
-            .dropFirst()
             .removeDuplicates()
+            .dropFirst()
             .sink(receiveValue: { isEmpty in
                 XCTAssertTrue(isEmpty)
                 expectTrue.fulfill()
             })
 
-        textView.attributedText = viewModel.content.attributed
-        _ = viewModel.replaceText(textView,
-                                  range: .init(location: 0, length: viewModel.content.attributed.length),
+        _ = viewModel.replaceText(range: .init(location: 0, length: viewModel.attributedContent.text.length),
                                   replacementText: "")
+        viewModel.textView?.attributedText = viewModel.attributedContent.text
 
         wait(for: [expectTrue], timeout: 2.0)
         cancellableTrue.cancel()
     }
 
     func testSimpleTextInputIsAccepted() throws {
-        let textView = UITextView()
-        textView.attributedText = NSAttributedString(string: "")
-        let shouldChange = viewModel.replaceText(textView,
-                                                 range: .zero,
+        let shouldChange = viewModel.replaceText(range: .zero,
                                                  replacementText: "A")
         XCTAssertTrue(shouldChange)
     }
 
     func testNewlineIsNotAccepted() throws {
-        let textView = UITextView()
-        textView.attributedText = NSAttributedString(string: "")
-        let shouldChange = viewModel.replaceText(textView,
-                                                 range: .zero,
+        let shouldChange = viewModel.replaceText(range: .zero,
                                                  replacementText: "\n")
         XCTAssertFalse(shouldChange)
     }
 
     func testReconciliateTextView() {
-        let textView = UITextView()
-        let initialText = NSAttributedString(string: "")
-        textView.attributedText = initialText
-        _ = viewModel.replaceText(textView,
-                                  range: .zero,
+        _ = viewModel.replaceText(range: .zero,
                                   replacementText: "A")
-        textView.attributedText = NSAttributedString(string: "AA")
-        XCTAssertEqual(textView.text, "AA")
-        XCTAssertEqual(textView.selectedRange, NSRange(location: 2, length: 0))
-        viewModel.didUpdateText(textView: textView)
-        XCTAssertEqual(textView.text, "A")
-        XCTAssertEqual(textView.selectedRange, NSRange(location: 1, length: 0))
+        viewModel.textView?.attributedText = NSAttributedString(string: "AA")
+        XCTAssertEqual(viewModel.textView?.text, "AA")
+        XCTAssertEqual(viewModel.textView?.selectedRange, NSRange(location: 2, length: 0))
+        viewModel.didUpdateText()
+        XCTAssertEqual(viewModel.textView?.text, "A")
+        XCTAssertEqual(viewModel.textView?.selectedRange, NSRange(location: 1, length: 0))
+    }
+
+    func testPlainTextMode() {
+        _ = viewModel.replaceText(range: .zero,
+                                  replacementText: "Some bold text")
+        viewModel.textView?.attributedText = NSAttributedString(string: "Some bold text")
+        viewModel.select(range: .init(location: 10, length: 4))
+        viewModel.apply(.bold)
+
+        XCTAssertEqual(viewModel.content.html, "Some bold <strong>text</strong>")
+
+        viewModel.plainTextMode = true
+        XCTAssertEqual(viewModel.content.markdown, "Some bold __text__")
+        XCTAssertEqual(viewModel.content.html, "Some bold <strong>text</strong>")
+
+        viewModel.plainTextMode = false
+        XCTAssertEqual(viewModel.content.html, "Some bold <strong>text</strong>")
     }
 }
