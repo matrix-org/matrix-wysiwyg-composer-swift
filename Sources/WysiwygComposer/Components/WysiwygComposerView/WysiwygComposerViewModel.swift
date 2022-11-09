@@ -59,10 +59,24 @@ public class WysiwygComposerViewModel: WysiwygComposerViewModelProtocol, Observa
             updateTextView()
         }
     }
+    
+    /// The current max allowed height for the textView when maximised
+    public var maxExpandedHeight: CGFloat {
+        didSet {
+            updateIdealHeight()
+        }
+    }
+    
+    /// The current max allowed height for the textView when minimised
+    public var maxCompressedHeight: CGFloat {
+        didSet {
+            updateIdealHeight()
+        }
+    }
 
     /// The current composer content.
     public var content: WysiwygComposerContent {
-        if plainTextMode {
+        if plainTextMode, let plainText = textView?.text {
             _ = model.setContentFromMarkdown(markdown: plainText)
         }
         return WysiwygComposerContent(markdown: model.getContentAsMarkdown(),
@@ -71,23 +85,29 @@ public class WysiwygComposerViewModel: WysiwygComposerViewModelProtocol, Observa
 
     // MARK: - Private
 
+    private let minHeight: CGFloat
     private var model: ComposerModel
     private var cancellables = Set<AnyCancellable>()
-    private let minHeight: CGFloat
-    private let maxHeight: CGFloat
+    private var defaultTextAttributes: [NSAttributedString.Key: Any] {
+        [.font: UIFont.preferredFont(forTextStyle: .body),
+         .foregroundColor: textColor]
+    }
+
     private var compressedHeight: CGFloat = .zero {
         didSet {
             updateIdealHeight()
         }
     }
 
-    private var plainText = ""
-
     // MARK: - Public
 
-    public init(minHeight: CGFloat = 20, maxHeight: CGFloat = 200, textColor: UIColor = .label) {
+    public init(minHeight: CGFloat = 20,
+                maxCompressedHeight: CGFloat = 200,
+                maxExpandedHeight: CGFloat = 300,
+                textColor: UIColor = .label) {
         self.minHeight = minHeight
-        self.maxHeight = maxHeight
+        self.maxCompressedHeight = maxCompressedHeight
+        self.maxExpandedHeight = maxExpandedHeight
         self.textColor = textColor
         model = newComposerModel()
         // Publish composer empty state.
@@ -100,6 +120,17 @@ public class WysiwygComposerViewModel: WysiwygComposerViewModelProtocol, Observa
             .removeDuplicates()
             .sink { [unowned self] isContentEmpty in
                 self.textView?.shouldShowPlaceholder = isContentEmpty
+            }
+            .store(in: &cancellables)
+        
+        $idealHeight
+            .removeDuplicates()
+            .sink { [unowned self] _ in
+                guard let textView = textView else { return }
+                // Improves a lot the user experience by keeping the selected range always visible when there are changes in the size.
+                DispatchQueue.main.async {
+                    textView.scrollRangeToVisible(textView.selectedRange)
+                }
             }
             .store(in: &cancellables)
     }
@@ -141,8 +172,12 @@ public extension WysiwygComposerViewModel {
 
     /// Clear the content of the composer.
     func clearContent() {
-        applyUpdate(model.clear())
-        updateTextView()
+        if plainTextMode {
+            textView?.attributedText = NSAttributedString(string: "", attributes: defaultTextAttributes)
+        } else {
+            applyUpdate(model.clear())
+            updateTextView()
+        }
     }
 
     /// Returns a textual representation of the composer model as a tree.
@@ -162,7 +197,7 @@ public extension WysiwygComposerViewModel {
             )
             .height
 
-        compressedHeight = min(maxHeight, max(minHeight, idealTextHeight))
+        compressedHeight = min(maxCompressedHeight, max(minHeight, idealTextHeight))
     }
 
     func replaceText(range: NSRange, replacementText: String) -> Bool {
@@ -222,7 +257,6 @@ public extension WysiwygComposerViewModel {
     func didUpdateText() {
         guard let textView = textView else { return }
         if plainTextMode {
-            plainText = textView.text
             if textView.text.isEmpty != isContentEmpty {
                 isContentEmpty = textView.text.isEmpty
             }
@@ -325,7 +359,7 @@ private extension WysiwygComposerViewModel {
     ///
     func updateIdealHeight() {
         if maximised {
-            idealHeight = maxHeight
+            idealHeight = maxExpandedHeight
         } else {
             // This solves the slowdown caused by the "Publishing changes from within view updates" purple warning
             DispatchQueue.main.async {
@@ -339,13 +373,12 @@ private extension WysiwygComposerViewModel {
     /// - Parameter enabled: whether plain text mode is enabled
     func updatePlainTextMode(_ enabled: Bool) {
         if enabled {
-            plainText = model.getContentAsMarkdown()
             guard let textView = textView else { return }
-            let attributed = NSAttributedString(string: plainText,
-                                                attributes: [.font: UIFont.preferredFont(forTextStyle: .body),
-                                                             .foregroundColor: textColor])
+            let attributed = NSAttributedString(string: model.getContentAsMarkdown(),
+                                                attributes: defaultTextAttributes)
             textView.attributedText = attributed
         } else {
+            guard let plainText = textView?.text else { return }
             let update = model.setContentFromMarkdown(markdown: plainText)
             applyUpdate(update)
             updateTextView()
