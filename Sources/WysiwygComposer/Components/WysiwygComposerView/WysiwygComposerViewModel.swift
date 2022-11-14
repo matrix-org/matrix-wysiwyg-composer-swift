@@ -31,11 +31,8 @@ public class WysiwygComposerViewModel: WysiwygComposerViewModelProtocol, Observa
     @Published public var isContentEmpty = true
     /// Published value for the composer required height to fit entirely without scrolling.
     @Published public var idealHeight: CGFloat = .zero
-    /// Published value for the composer current expected reversed actions
-    /// (e.g. calling `bold` will effectively un-bold the current selection).
-    @Published public var reversedActions: [ComposerAction] = []
-    /// Published value for the composer current expected disabled actions.
-    @Published public var disabledActions: [ComposerAction] = []
+    /// Published value for the composer current action states
+    @Published public var actionStates: [ComposerAction: ActionState] = [:]
     /// Published value for the composer maximised state.
     @Published public var maximised = false {
         didSet {
@@ -102,7 +99,7 @@ public class WysiwygComposerViewModel: WysiwygComposerViewModelProtocol, Observa
 
     // MARK: - Public
 
-    public init(minHeight: CGFloat = 20,
+    public init(minHeight: CGFloat = 22,
                 maxCompressedHeight: CGFloat = 200,
                 maxExpandedHeight: CGFloat = 300,
                 textColor: UIColor = .label) {
@@ -255,17 +252,21 @@ public extension WysiwygComposerViewModel {
         }
     }
 
-    func didUpdateText() {
+    func didUpdateText(shouldReconciliate: Bool = true) {
         guard let textView = textView else { return }
         if plainTextMode {
             if textView.text.isEmpty != isContentEmpty {
                 isContentEmpty = textView.text.isEmpty
             }
         } else if textView.attributedText != attributedContent.text {
-            // Reconciliate
-            Logger.viewModel.logDebug(["Reconciliate from \"\(textView.text ?? "")\" to \"\(attributedContent.text)\""],
-                                      functionName: #function)
-            textView.apply(attributedContent)
+            if shouldReconciliate {
+                // Reconciliate
+                Logger.viewModel.logDebug(["Reconciliate from \"\(textView.text ?? "")\" to \"\(attributedContent.text)\""],
+                                          functionName: #function)
+                textView.apply(attributedContent)
+            } else {
+                textView.shouldShowPlaceholder = textView.attributedText.length == 0
+            }
         }
 
         updateCompressedHeightIfNeeded()
@@ -296,10 +297,8 @@ private extension WysiwygComposerViewModel {
         }
 
         switch update.menuState() {
-        case let .update(reversedActions: reversedActions,
-                         disabledActions: disabledActions):
-            self.reversedActions = reversedActions
-            self.disabledActions = disabledActions
+        case let .update(actionStates: actionStates):
+            self.actionStates = actionStates
         default:
             break
         }
