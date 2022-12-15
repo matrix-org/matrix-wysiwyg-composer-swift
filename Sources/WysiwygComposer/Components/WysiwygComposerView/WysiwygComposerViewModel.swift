@@ -63,6 +63,17 @@ public class WysiwygComposerViewModel: WysiwygComposerViewModelProtocol, Observa
     public var linkColor: UIColor {
         didSet {
             // In case of a color change, this will refresh the attributed text
+            textView.linkTextAttributes[.foregroundColor] = linkColor
+            let update = model.setContentFromHtml(html: content.html)
+            applyUpdate(update)
+            updateTextView()
+        }
+    }
+    
+    /// The color that will be used for the background of code blocks
+    public var codeBackgroundColor: UIColor {
+        didSet {
+            // In case of a color change, this will refresh the attributed text
             let update = model.setContentFromHtml(html: content.html)
             applyUpdate(update)
             updateTextView()
@@ -116,12 +127,15 @@ public class WysiwygComposerViewModel: WysiwygComposerViewModelProtocol, Observa
                 maxCompressedHeight: CGFloat = 200,
                 maxExpandedHeight: CGFloat = 300,
                 textColor: UIColor = .label,
-                linkColor: UIColor = .link) {
+                linkColor: UIColor = .link,
+                codeBackgroundColor: UIColor = .systemGray5) {
         self.minHeight = minHeight
         self.maxCompressedHeight = maxCompressedHeight
         self.maxExpandedHeight = maxExpandedHeight
         self.textColor = textColor
         self.linkColor = linkColor
+        self.codeBackgroundColor = codeBackgroundColor
+        textView.linkTextAttributes[.foregroundColor] = linkColor
         model = newComposerModel()
         // Publish composer empty state.
         $attributedContent.sink { [unowned self] content in
@@ -213,6 +227,12 @@ public extension WysiwygComposerViewModel {
     func replaceText(range: NSRange, replacementText: String) -> Bool {
         guard !plainTextMode else {
             return true
+        }
+        
+        // This fixes a bug where the attributed string keeps link and inline code formatting
+        // when they are the last formatting to be deleted
+        if textView.attributedText.length == 0 {
+            textView.typingAttributes = defaultTextAttributes
         }
 
         let update: ComposerUpdate
@@ -352,7 +372,12 @@ private extension WysiwygComposerViewModel {
     func applyReplaceAll(codeUnits: [UInt16], start: UInt32, end: UInt32) {
         do {
             let html = String(utf16CodeUnits: codeUnits, count: codeUnits.count)
-            let attributed = try HTMLParser.parse(html: html, textColor: textColor, linkColor: linkColor)
+            let attributed = try HTMLParser.parse(
+                html: html,
+                textColor: textColor,
+                linkColor: linkColor,
+                codeBackgroundColor: codeBackgroundColor
+            )
             // FIXME: handle error for out of bounds index
             let htmlSelection = NSRange(location: Int(start), length: Int(end - start))
             // FIXME: temporary workaround as trailing newline should be ignored but are now replacing ZWSP from Rust model
