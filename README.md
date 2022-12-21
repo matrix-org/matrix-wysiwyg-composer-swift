@@ -7,6 +7,3 @@ It is composed of:
 * Swift bindings to interact with these libraries.
 * Components built on top of these bindings.
 * Unit tests validating this.
-
-This repo is only used to release the original RTE repo on Swift Packager Manager.
-For the changelog, licensing, the rust codebase and more information please visit the original repo [here](https://github.com/matrix-org/matrix-rich-text-editor)
