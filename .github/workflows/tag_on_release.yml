@@ -25,3 +25,4 @@ jobs:
           github_token: ${{ github.token }}
           custom_tag: ${{steps.get-version.outputs.value}}
           tag_prefix: ''
+          
