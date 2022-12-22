@@ -1,0 +1,23 @@
+name: PR on Release Branch
+
+on:
+  push:
+    branches:
+    - release_*
+
+jobs:
+  tag-release:
+    name: PR on Release Branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get branch name
+        id: branch-name
+        uses: tj-actions/branch-names@v6
+
+      - name: Set env BODY
+        if: startsWith( steps.branch-name.outputs.current_branch, 'release_v_' )
+        run: echo "BODY=To auto-tag the branch for versioning remember to edit the merge commit message to match the branch name" >> "$GITHUB_ENV"
+
+      - name: Open PR
+        run: |
+          gh pr create -B main -H ${{github.ref}} -r matrix.org/professional-services-uk -t ${{github.ref}} -b ${{env.BODY}}
