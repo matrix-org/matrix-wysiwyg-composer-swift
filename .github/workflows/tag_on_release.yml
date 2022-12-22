@@ -9,7 +9,7 @@ jobs:
   tag-release:
     name: Tag on Release
     runs-on: ubuntu-latest
-    if: startsWith( github.event.head_commit.message, '$PREFIX' )
+    if: startsWith( github.event.head_commit.message, $PREFIX )
     steps:
       - name: 🧮 Checkout code
         uses: actions/checkout@v3
@@ -19,7 +19,7 @@ jobs:
         id: get-version
         with:
           source: ${{ github.ref }}
-          find: '$PREFIX'
+          find: $PREFIX
           replace: ''
 
       - name: Add Tag
