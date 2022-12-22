@@ -25,6 +25,21 @@ jobs:
         if: startsWith( steps.branch-name.outputs.current_branch, 'release_v_' )
         run: echo "BODY=PR Generated with a workflow. To auto-tag the branch for versioning remember to edit the merge commit message to match the branch name" >> "$GITHUB_ENV"
 
+      - name: Check if PR exists
+        id: check-pr
+        run: |
+          prs=$(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --json baseRefName,headRefName \
+            --jq '
+                map(select(.baseRefName == "main" and .headRefName == "${{steps.branch-name.outputs.current_branch}}"))
+                | length
+              ')
+          if ((prs > 0)); then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Open PR
+        if: ${{steps.check-pr.outputs.skip}} == false
         run: |
           gh pr create -B main -H ${{steps.branch-name.outputs.current_branch}} -t ${{steps.branch-name.outputs.current_branch}} -b "${{env.BODY}}"
