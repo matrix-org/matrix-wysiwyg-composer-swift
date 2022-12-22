@@ -7,6 +7,7 @@ on:
 
 env:
   BODY: Generated
+  GH_TOKEN: ${{ github.token }}
 
 jobs:
   tag-release:
