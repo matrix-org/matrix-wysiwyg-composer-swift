@@ -6,7 +6,7 @@ on:
     - release_*
 
 env:
-  BODY: Generated
+  BODY: PR Generated with a workflow
   GH_TOKEN: ${{ github.token }}
 
 jobs:
@@ -23,8 +23,8 @@ jobs:
 
       - name: Set env BODY
         if: startsWith( steps.branch-name.outputs.current_branch, 'release_v_' )
-        run: echo "BODY=To auto-tag the branch for versioning remember to edit the merge commit message to match the branch name" >> "$GITHUB_ENV"
+        run: echo "BODY=PR Generated with a workflow\nTo auto-tag the branch for versioning remember to edit the merge commit message to match the branch name" >> "$GITHUB_ENV"
 
       - name: Open PR
         run: |
-          gh pr create -B main -H ${{steps.branch-name.outputs.current_branch}} -r professional-services-uk -t ${{steps.branch-name.outputs.current_branch}} -b ${{env.BODY}}
+          gh pr create -B main -H ${{steps.branch-name.outputs.current_branch}} -t ${{steps.branch-name.outputs.current_branch}} -b ${{env.BODY}}
