@@ -6,6 +6,8 @@ on:
     - release_*
 
 jobs:
+  env:
+    BODY: Generated
   tag-release:
     name: PR on Release Branch
     runs-on: ubuntu-latest
