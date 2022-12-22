@@ -23,7 +23,7 @@ jobs:
 
       - name: Set env BODY
         if: startsWith( steps.branch-name.outputs.current_branch, 'release_v_' )
-        run: echo "BODY=PR Generated with a workflow\nTo auto-tag the branch for versioning remember to edit the merge commit message to match the branch name" >> "$GITHUB_ENV"
+        run: echo "BODY=PR Generated with a workflow. To auto-tag the branch for versioning remember to edit the merge commit message to match the branch name" >> "$GITHUB_ENV"
 
       - name: Open PR
         run: |
