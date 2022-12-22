@@ -3,18 +3,27 @@ name: Tag Release
 on: push
 
 jobs:
+  env:
+    PREFIX: release_v_
   tag-release:
     name: Tag on Release
     runs-on: ubuntu-latest
-    if: startsWith( github.event.head_commit.message, 'release_v_' )
+    if: startsWith( github.event.head_commit.message, '$PREFIX' )
     steps:
       - name: 🧮 Checkout code
         uses: actions/checkout@v3
 
+      - name: Get Version
+        uses: mad9000/actions-find-and-replace-string@3
+        id: get-version
+        with:
+          source: ${{ github.ref }}
+          find: '$PREFIX'
+          replace: ''
+
       - name: Add Tag
-        env:
-          VERSION: ${{ github.event.head_commit.message }}#'release_v_'
         uses: mathieudutour/github-tag-action@v6.1
         with:
           github_token: ${{ github.token }}
-          custom_tag: $VERSION
+          custom_tag: ${{steps.get-version.outputs.value}}
+          tag_prefix: ''
