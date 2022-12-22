@@ -2,9 +2,10 @@ name: Tag Release
 
 on: push
 
+env:
+  PREFIX: release_v_
+
 jobs:
-  env:
-    PREFIX: release_v_
   tag-release:
     name: Tag on Release
     runs-on: ubuntu-latest
