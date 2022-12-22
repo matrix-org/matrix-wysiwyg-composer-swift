@@ -5,9 +5,10 @@ on:
     branches:
     - release_*
 
+env:
+  BODY: Generated
+
 jobs:
-  env:
-    BODY: Generated
   tag-release:
     name: PR on Release Branch
     runs-on: ubuntu-latest
