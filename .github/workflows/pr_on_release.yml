@@ -27,4 +27,4 @@ jobs:
 
       - name: Open PR
         run: |
-          gh pr create -B main -H ${{steps.branch-name.outputs.current_branch}} -t ${{steps.branch-name.outputs.current_branch}} -b ${{env.BODY}}
+          gh pr create -B main -H ${{steps.branch-name.outputs.current_branch}} -t ${{steps.branch-name.outputs.current_branch}} -b "${{env.BODY}}"
