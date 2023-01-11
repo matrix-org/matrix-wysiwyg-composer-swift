@@ -1,15 +1,17 @@
 name: Tag Release
 
 on:
-  push:
+  pull_request:
+    types:
+      - closed
     branches:
-    - main
+      - 'main'
 
 jobs:
   tag-release:
     name: Tag on Release
     runs-on: ubuntu-latest
-    if: startsWith( github.event.head_commit.message, 'release_v_' )
+    if: ${{ github.event.pull_request.merged == true && startsWith( github.head_ref, 'release_v_' ) }}
     steps:
       - name: 🧮 Checkout code
         uses: actions/checkout@v3
@@ -18,7 +20,7 @@ jobs:
         uses: mad9000/actions-find-and-replace-string@3
         id: get-version
         with:
-          source: ${{ github.event.head_commit.message }}
+          source: ${{ github.head_ref }}
           find: 'release_v_'
           replace: ''
 
