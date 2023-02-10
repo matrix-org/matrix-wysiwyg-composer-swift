@@ -19,13 +19,13 @@ private extension RustBuffer {
     }
 
     static func from(_ ptr: UnsafeBufferPointer<UInt8>) -> RustBuffer {
-        try! rustCall { ffi_wysiwyg_composer_f8c9_rustbuffer_from_bytes(ForeignBytes(bufferPointer: ptr), $0) }
+        try! rustCall { ffi_wysiwyg_composer_10df_rustbuffer_from_bytes(ForeignBytes(bufferPointer: ptr), $0) }
     }
 
     // Frees the buffer in place.
     // The buffer must not be used after this is called.
     func deallocate() {
-        try! rustCall { ffi_wysiwyg_composer_f8c9_rustbuffer_free(self, $0) }
+        try! rustCall { ffi_wysiwyg_composer_10df_rustbuffer_free(self, $0) }
     }
 }
 
@@ -346,34 +346,36 @@ private struct FfiConverterString: FfiConverter {
 }
 
 public protocol ComposerModelProtocol {
-    func setContentFromHtml(html: String) -> ComposerUpdate
-    func setContentFromMarkdown(markdown: String) -> ComposerUpdate
+    func setContentFromHtml(html: String) throws -> ComposerUpdate
+    func setContentFromMarkdown(markdown: String) throws -> ComposerUpdate
     func getContentAsHtml() -> String
     func getContentAsMarkdown() -> String
-    func clear() -> ComposerUpdate
-    func select(startUtf16Codeunit: UInt32, endUtf16Codeunit: UInt32) -> ComposerUpdate
-    func replaceText(newText: String) -> ComposerUpdate
-    func replaceTextIn(newText: String, start: UInt32, end: UInt32) -> ComposerUpdate
-    func backspace() -> ComposerUpdate
-    func delete() -> ComposerUpdate
-    func deleteIn(start: UInt32, end: UInt32) -> ComposerUpdate
-    func enter() -> ComposerUpdate
-    func bold() -> ComposerUpdate
-    func italic() -> ComposerUpdate
-    func strikeThrough() -> ComposerUpdate
-    func underline() -> ComposerUpdate
-    func inlineCode() -> ComposerUpdate
-    func orderedList() -> ComposerUpdate
-    func unorderedList() -> ComposerUpdate
-    func undo() -> ComposerUpdate
-    func redo() -> ComposerUpdate
-    func indent() -> ComposerUpdate
-    func unindent() -> ComposerUpdate
-    func setLink(link: String) -> ComposerUpdate
-    func setLinkWithText(link: String, text: String) -> ComposerUpdate
-    func removeLinks() -> ComposerUpdate
-    func codeBlock() -> ComposerUpdate
-    func quote() -> ComposerUpdate
+    func getContentAsPlainText() -> String
+    func clear() throws -> ComposerUpdate
+    func select(startUtf16Codeunit: UInt32, endUtf16Codeunit: UInt32) throws -> ComposerUpdate
+    func replaceText(newText: String) throws -> ComposerUpdate
+    func replaceTextIn(newText: String, start: UInt32, end: UInt32) throws -> ComposerUpdate
+    func backspace() throws -> ComposerUpdate
+    func delete() throws -> ComposerUpdate
+    func deleteIn(start: UInt32, end: UInt32) throws -> ComposerUpdate
+    func enter() throws -> ComposerUpdate
+    func bold() throws -> ComposerUpdate
+    func italic() throws -> ComposerUpdate
+    func strikeThrough() throws -> ComposerUpdate
+    func underline() throws -> ComposerUpdate
+    func inlineCode() throws -> ComposerUpdate
+    func orderedList() throws -> ComposerUpdate
+    func unorderedList() throws -> ComposerUpdate
+    func undo() throws -> ComposerUpdate
+    func redo() throws -> ComposerUpdate
+    func indent() throws -> ComposerUpdate
+    func unindent() throws -> ComposerUpdate
+    func setLink(link: String) throws -> ComposerUpdate
+    func setLinkWithText(link: String, text: String) throws -> ComposerUpdate
+    func removeLinks() throws -> ComposerUpdate
+    func codeBlock() throws -> ComposerUpdate
+    func quote() throws -> ComposerUpdate
+    func debugPanic()
     func toTree() -> String
     func toExampleFormat() -> String
     func getCurrentDomState() -> ComposerState
@@ -392,24 +394,24 @@ public class ComposerModel: ComposerModelProtocol {
     }
 
     deinit {
-        try! rustCall { ffi_wysiwyg_composer_f8c9_ComposerModel_object_free(pointer, $0) }
+        try! rustCall { ffi_wysiwyg_composer_10df_ComposerModel_object_free(pointer, $0) }
     }
 
-    public func setContentFromHtml(html: String) -> ComposerUpdate {
-        return try! FfiConverterTypeComposerUpdate.lift(
-            try!
+    public func setContentFromHtml(html: String) throws -> ComposerUpdate {
+        return try FfiConverterTypeComposerUpdate.lift(
+            try
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_set_content_from_html(self.pointer,
+                    wysiwyg_composer_10df_ComposerModel_set_content_from_html(self.pointer,
                                                                               FfiConverterString.lower(html), $0)
                 }
         )
     }
 
-    public func setContentFromMarkdown(markdown: String) -> ComposerUpdate {
-        return try! FfiConverterTypeComposerUpdate.lift(
-            try!
+    public func setContentFromMarkdown(markdown: String) throws -> ComposerUpdate {
+        return try FfiConverterTypeComposerUpdate.lift(
+            try
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_set_content_from_markdown(self.pointer,
+                    wysiwyg_composer_10df_ComposerModel_set_content_from_markdown(self.pointer,
                                                                                   FfiConverterString.lower(markdown), $0)
                 }
         )
@@ -419,7 +421,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterString.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_get_content_as_html(self.pointer, $0)
+                    wysiwyg_composer_10df_ComposerModel_get_content_as_html(self.pointer, $0)
                 }
         )
     }
@@ -428,46 +430,55 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterString.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_get_content_as_markdown(self.pointer, $0)
+                    wysiwyg_composer_10df_ComposerModel_get_content_as_markdown(self.pointer, $0)
                 }
         )
     }
 
-    public func clear() -> ComposerUpdate {
-        return try! FfiConverterTypeComposerUpdate.lift(
+    public func getContentAsPlainText() -> String {
+        return try! FfiConverterString.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_clear(self.pointer, $0)
+                    wysiwyg_composer_10df_ComposerModel_get_content_as_plain_text(self.pointer, $0)
                 }
         )
     }
 
-    public func select(startUtf16Codeunit: UInt32, endUtf16Codeunit: UInt32) -> ComposerUpdate {
-        return try! FfiConverterTypeComposerUpdate.lift(
-            try!
+    public func clear() throws -> ComposerUpdate {
+        return try FfiConverterTypeComposerUpdate.lift(
+            try
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_select(self.pointer,
+                    wysiwyg_composer_10df_ComposerModel_clear(self.pointer, $0)
+                }
+        )
+    }
+
+    public func select(startUtf16Codeunit: UInt32, endUtf16Codeunit: UInt32) throws -> ComposerUpdate {
+        return try FfiConverterTypeComposerUpdate.lift(
+            try
+                rustCall {
+                    wysiwyg_composer_10df_ComposerModel_select(self.pointer,
                                                                FfiConverterUInt32.lower(startUtf16Codeunit),
                                                                FfiConverterUInt32.lower(endUtf16Codeunit), $0)
                 }
         )
     }
 
-    public func replaceText(newText: String) -> ComposerUpdate {
-        return try! FfiConverterTypeComposerUpdate.lift(
-            try!
+    public func replaceText(newText: String) throws -> ComposerUpdate {
+        return try FfiConverterTypeComposerUpdate.lift(
+            try
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_replace_text(self.pointer,
+                    wysiwyg_composer_10df_ComposerModel_replace_text(self.pointer,
                                                                      FfiConverterString.lower(newText), $0)
                 }
         )
     }
 
-    public func replaceTextIn(newText: String, start: UInt32, end: UInt32) -> ComposerUpdate {
-        return try! FfiConverterTypeComposerUpdate.lift(
-            try!
+    public func replaceTextIn(newText: String, start: UInt32, end: UInt32) throws -> ComposerUpdate {
+        return try FfiConverterTypeComposerUpdate.lift(
+            try
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_replace_text_in(self.pointer,
+                    wysiwyg_composer_10df_ComposerModel_replace_text_in(self.pointer,
                                                                         FfiConverterString.lower(newText),
                                                                         FfiConverterUInt32.lower(start),
                                                                         FfiConverterUInt32.lower(end), $0)
@@ -475,196 +486,203 @@ public class ComposerModel: ComposerModelProtocol {
         )
     }
 
-    public func backspace() -> ComposerUpdate {
-        return try! FfiConverterTypeComposerUpdate.lift(
-            try!
+    public func backspace() throws -> ComposerUpdate {
+        return try FfiConverterTypeComposerUpdate.lift(
+            try
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_backspace(self.pointer, $0)
+                    wysiwyg_composer_10df_ComposerModel_backspace(self.pointer, $0)
                 }
         )
     }
 
-    public func delete() -> ComposerUpdate {
-        return try! FfiConverterTypeComposerUpdate.lift(
-            try!
+    public func delete() throws -> ComposerUpdate {
+        return try FfiConverterTypeComposerUpdate.lift(
+            try
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_delete(self.pointer, $0)
+                    wysiwyg_composer_10df_ComposerModel_delete(self.pointer, $0)
                 }
         )
     }
 
-    public func deleteIn(start: UInt32, end: UInt32) -> ComposerUpdate {
-        return try! FfiConverterTypeComposerUpdate.lift(
-            try!
+    public func deleteIn(start: UInt32, end: UInt32) throws -> ComposerUpdate {
+        return try FfiConverterTypeComposerUpdate.lift(
+            try
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_delete_in(self.pointer,
+                    wysiwyg_composer_10df_ComposerModel_delete_in(self.pointer,
                                                                   FfiConverterUInt32.lower(start),
                                                                   FfiConverterUInt32.lower(end), $0)
                 }
         )
     }
 
-    public func enter() -> ComposerUpdate {
-        return try! FfiConverterTypeComposerUpdate.lift(
-            try!
+    public func enter() throws -> ComposerUpdate {
+        return try FfiConverterTypeComposerUpdate.lift(
+            try
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_enter(self.pointer, $0)
+                    wysiwyg_composer_10df_ComposerModel_enter(self.pointer, $0)
                 }
         )
     }
 
-    public func bold() -> ComposerUpdate {
-        return try! FfiConverterTypeComposerUpdate.lift(
-            try!
+    public func bold() throws -> ComposerUpdate {
+        return try FfiConverterTypeComposerUpdate.lift(
+            try
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_bold(self.pointer, $0)
+                    wysiwyg_composer_10df_ComposerModel_bold(self.pointer, $0)
                 }
         )
     }
 
-    public func italic() -> ComposerUpdate {
-        return try! FfiConverterTypeComposerUpdate.lift(
-            try!
+    public func italic() throws -> ComposerUpdate {
+        return try FfiConverterTypeComposerUpdate.lift(
+            try
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_italic(self.pointer, $0)
+                    wysiwyg_composer_10df_ComposerModel_italic(self.pointer, $0)
                 }
         )
     }
 
-    public func strikeThrough() -> ComposerUpdate {
-        return try! FfiConverterTypeComposerUpdate.lift(
-            try!
+    public func strikeThrough() throws -> ComposerUpdate {
+        return try FfiConverterTypeComposerUpdate.lift(
+            try
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_strike_through(self.pointer, $0)
+                    wysiwyg_composer_10df_ComposerModel_strike_through(self.pointer, $0)
                 }
         )
     }
 
-    public func underline() -> ComposerUpdate {
-        return try! FfiConverterTypeComposerUpdate.lift(
-            try!
+    public func underline() throws -> ComposerUpdate {
+        return try FfiConverterTypeComposerUpdate.lift(
+            try
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_underline(self.pointer, $0)
+                    wysiwyg_composer_10df_ComposerModel_underline(self.pointer, $0)
                 }
         )
     }
 
-    public func inlineCode() -> ComposerUpdate {
-        return try! FfiConverterTypeComposerUpdate.lift(
-            try!
+    public func inlineCode() throws -> ComposerUpdate {
+        return try FfiConverterTypeComposerUpdate.lift(
+            try
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_inline_code(self.pointer, $0)
+                    wysiwyg_composer_10df_ComposerModel_inline_code(self.pointer, $0)
                 }
         )
     }
 
-    public func orderedList() -> ComposerUpdate {
-        return try! FfiConverterTypeComposerUpdate.lift(
-            try!
+    public func orderedList() throws -> ComposerUpdate {
+        return try FfiConverterTypeComposerUpdate.lift(
+            try
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_ordered_list(self.pointer, $0)
+                    wysiwyg_composer_10df_ComposerModel_ordered_list(self.pointer, $0)
                 }
         )
     }
 
-    public func unorderedList() -> ComposerUpdate {
-        return try! FfiConverterTypeComposerUpdate.lift(
-            try!
+    public func unorderedList() throws -> ComposerUpdate {
+        return try FfiConverterTypeComposerUpdate.lift(
+            try
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_unordered_list(self.pointer, $0)
+                    wysiwyg_composer_10df_ComposerModel_unordered_list(self.pointer, $0)
                 }
         )
     }
 
-    public func undo() -> ComposerUpdate {
-        return try! FfiConverterTypeComposerUpdate.lift(
-            try!
+    public func undo() throws -> ComposerUpdate {
+        return try FfiConverterTypeComposerUpdate.lift(
+            try
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_undo(self.pointer, $0)
+                    wysiwyg_composer_10df_ComposerModel_undo(self.pointer, $0)
                 }
         )
     }
 
-    public func redo() -> ComposerUpdate {
-        return try! FfiConverterTypeComposerUpdate.lift(
-            try!
+    public func redo() throws -> ComposerUpdate {
+        return try FfiConverterTypeComposerUpdate.lift(
+            try
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_redo(self.pointer, $0)
+                    wysiwyg_composer_10df_ComposerModel_redo(self.pointer, $0)
                 }
         )
     }
 
-    public func indent() -> ComposerUpdate {
-        return try! FfiConverterTypeComposerUpdate.lift(
-            try!
+    public func indent() throws -> ComposerUpdate {
+        return try FfiConverterTypeComposerUpdate.lift(
+            try
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_indent(self.pointer, $0)
+                    wysiwyg_composer_10df_ComposerModel_indent(self.pointer, $0)
                 }
         )
     }
 
-    public func unindent() -> ComposerUpdate {
-        return try! FfiConverterTypeComposerUpdate.lift(
-            try!
+    public func unindent() throws -> ComposerUpdate {
+        return try FfiConverterTypeComposerUpdate.lift(
+            try
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_unindent(self.pointer, $0)
+                    wysiwyg_composer_10df_ComposerModel_unindent(self.pointer, $0)
                 }
         )
     }
 
-    public func setLink(link: String) -> ComposerUpdate {
-        return try! FfiConverterTypeComposerUpdate.lift(
-            try!
+    public func setLink(link: String) throws -> ComposerUpdate {
+        return try FfiConverterTypeComposerUpdate.lift(
+            try
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_set_link(self.pointer,
+                    wysiwyg_composer_10df_ComposerModel_set_link(self.pointer,
                                                                  FfiConverterString.lower(link), $0)
                 }
         )
     }
 
-    public func setLinkWithText(link: String, text: String) -> ComposerUpdate {
-        return try! FfiConverterTypeComposerUpdate.lift(
-            try!
+    public func setLinkWithText(link: String, text: String) throws -> ComposerUpdate {
+        return try FfiConverterTypeComposerUpdate.lift(
+            try
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_set_link_with_text(self.pointer,
+                    wysiwyg_composer_10df_ComposerModel_set_link_with_text(self.pointer,
                                                                            FfiConverterString.lower(link),
                                                                            FfiConverterString.lower(text), $0)
                 }
         )
     }
 
-    public func removeLinks() -> ComposerUpdate {
-        return try! FfiConverterTypeComposerUpdate.lift(
-            try!
+    public func removeLinks() throws -> ComposerUpdate {
+        return try FfiConverterTypeComposerUpdate.lift(
+            try
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_remove_links(self.pointer, $0)
+                    wysiwyg_composer_10df_ComposerModel_remove_links(self.pointer, $0)
                 }
         )
     }
 
-    public func codeBlock() -> ComposerUpdate {
-        return try! FfiConverterTypeComposerUpdate.lift(
-            try!
+    public func codeBlock() throws -> ComposerUpdate {
+        return try FfiConverterTypeComposerUpdate.lift(
+            try
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_code_block(self.pointer, $0)
+                    wysiwyg_composer_10df_ComposerModel_code_block(self.pointer, $0)
                 }
         )
     }
 
-    public func quote() -> ComposerUpdate {
-        return try! FfiConverterTypeComposerUpdate.lift(
-            try!
+    public func quote() throws -> ComposerUpdate {
+        return try FfiConverterTypeComposerUpdate.lift(
+            try
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_quote(self.pointer, $0)
+                    wysiwyg_composer_10df_ComposerModel_quote(self.pointer, $0)
                 }
         )
+    }
+
+    public func debugPanic() {
+        try!
+            rustCall {
+                wysiwyg_composer_10df_ComposerModel_debug_panic(self.pointer, $0)
+            }
     }
 
     public func toTree() -> String {
         return try! FfiConverterString.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_to_tree(self.pointer, $0)
+                    wysiwyg_composer_10df_ComposerModel_to_tree(self.pointer, $0)
                 }
         )
     }
@@ -673,7 +691,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterString.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_to_example_format(self.pointer, $0)
+                    wysiwyg_composer_10df_ComposerModel_to_example_format(self.pointer, $0)
                 }
         )
     }
@@ -682,7 +700,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterTypeComposerState.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_get_current_dom_state(self.pointer, $0)
+                    wysiwyg_composer_10df_ComposerModel_get_current_dom_state(self.pointer, $0)
                 }
         )
     }
@@ -691,7 +709,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterDictionaryTypeComposerActionTypeActionState.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_action_states(self.pointer, $0)
+                    wysiwyg_composer_10df_ComposerModel_action_states(self.pointer, $0)
                 }
         )
     }
@@ -700,7 +718,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterTypeLinkAction.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerModel_get_link_action(self.pointer, $0)
+                    wysiwyg_composer_10df_ComposerModel_get_link_action(self.pointer, $0)
                 }
         )
     }
@@ -752,14 +770,14 @@ public class ComposerUpdate: ComposerUpdateProtocol {
     }
 
     deinit {
-        try! rustCall { ffi_wysiwyg_composer_f8c9_ComposerUpdate_object_free(pointer, $0) }
+        try! rustCall { ffi_wysiwyg_composer_10df_ComposerUpdate_object_free(pointer, $0) }
     }
 
     public func textUpdate() -> TextUpdate {
         return try! FfiConverterTypeTextUpdate.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerUpdate_text_update(self.pointer, $0)
+                    wysiwyg_composer_10df_ComposerUpdate_text_update(self.pointer, $0)
                 }
         )
     }
@@ -768,7 +786,7 @@ public class ComposerUpdate: ComposerUpdateProtocol {
         return try! FfiConverterTypeMenuState.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_f8c9_ComposerUpdate_menu_state(self.pointer, $0)
+                    wysiwyg_composer_10df_ComposerUpdate_menu_state(self.pointer, $0)
                 }
         )
     }
@@ -1183,7 +1201,7 @@ public func newComposerModel() -> ComposerModel {
         try!
 
             rustCall {
-                wysiwyg_composer_f8c9_new_composer_model($0)
+                wysiwyg_composer_10df_new_composer_model($0)
             }
     )
 }
