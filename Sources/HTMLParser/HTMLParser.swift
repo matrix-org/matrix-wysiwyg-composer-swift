@@ -62,7 +62,8 @@ public final class HTMLParser {
     /// - Returns: an attributed string representation of the HTML content
     public static func parse(html: String,
                              encoding: String.Encoding = .utf16,
-                             style: HTMLParserStyle = .standard) throws -> NSAttributedString {
+                             style: HTMLParserStyle = .standard,
+                             permalinkReplacer: PermalinkReplacer? = nil) throws -> NSAttributedString {
         guard !html.isEmpty else {
             return NSAttributedString(string: "")
         }
@@ -77,8 +78,9 @@ public final class HTMLParser {
             DTUseiOS6Attributes: true,
             DTDefaultFontDescriptor: defaultFont.fontDescriptor,
             DTDefaultStyleSheet: DTCSSStylesheet(styleBlock: defaultCSS) as Any,
+            DTDocumentPreserveTrailingSpaces: true,
         ]
-        
+
         guard let builder = DTHTMLAttributedStringBuilder(html: data, options: parsingOptions, documentAttributes: nil) else {
             throw BuildHtmlAttributedError.dataError(encoding: encoding)
         }
@@ -96,29 +98,14 @@ public final class HTMLParser {
         }
         
         let mutableAttributedString = NSMutableAttributedString(attributedString: attributedString)
-        
-        mutableAttributedString.addAttributes(
-            [.foregroundColor: style.textColor], range: NSRange(location: 0, length: mutableAttributedString.length)
-        )
-        
-        // This fixes an iOS bug where if some text is typed after a link, and then a whitespace is added the link color is overridden.
-        mutableAttributedString.enumerateAttribute(
-            .link,
-            in: NSRange(location: 0, length: mutableAttributedString.length)
-        ) { value, range, _ in
-            if value != nil {
-                mutableAttributedString.removeAttribute(.underlineStyle, range: range)
-                mutableAttributedString.removeAttribute(.underlineColor, range: range)
-                mutableAttributedString.addAttributes([.foregroundColor: style.linkColor], range: range)
-            }
+        mutableAttributedString.applyPostParsingCustomAttributes(style: style)
+
+        if let permalinkReplacer {
+            mutableAttributedString.replaceLinks(with: permalinkReplacer)
         }
 
-        mutableAttributedString.removeParagraphVerticalSpacing()
-        mutableAttributedString.applyBackgroundStyles(style: style)
-        mutableAttributedString.applyInlineCodeBackgroundStyle(codeBackgroundColor: style.codeBlockStyle.backgroundColor)
-        mutableAttributedString.replaceOrDeleteDiscardableText()
-
         removeTrailingNewlineIfNeeded(from: mutableAttributedString, given: html)
+
         return mutableAttributedString
     }
     

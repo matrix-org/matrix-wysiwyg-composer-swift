@@ -54,7 +54,23 @@ final class ListsSnapshotTests: SnapshotTests {
             """
             <ol><li>Item 1</li><li><p>Item 2</p>\
             <ol><li>Item 2A</li><li>Item 2B</li><li>Item 2C</li></ol>\
-            </li><li>Item 3</li></ul>
+            </li><li>Item 3</li></ol>
+            """
+        )
+        assertSnapshot(
+            matching: hostingController,
+            as: .image(on: .iPhone13),
+            record: isRecord
+        )
+    }
+
+    func testListInQuote() throws {
+        viewModel.setHtmlContent(
+            """
+            <blockquote>\
+            <ol><li>Item 1</li><li>Item 2</li></ol>\
+            <p>Some text</p>\
+            </blockquote>
             """
         )
         assertSnapshot(
