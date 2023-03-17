@@ -97,13 +97,13 @@ private class Reader {
     // Reads a float at the current offset.
     @inlinable
     func readFloat() throws -> Float {
-        return Float(bitPattern: try readInt())
+        return try Float(bitPattern: readInt())
     }
 
     // Reads a float at the current offset.
     @inlinable
     func readDouble() throws -> Double {
-        return Double(bitPattern: try readInt())
+        return try Double(bitPattern: readInt())
     }
 
     // Indicates if the offset has reached the end of the buffer.
@@ -268,7 +268,7 @@ private func makeRustCall<T>(_ callback: (UnsafeMutablePointer<RustCallStatus>) 
         // with the message.  But if that code panics, then it just sends back
         // an empty buffer.
         if callStatus.errorBuf.len > 0 {
-            throw UniffiInternalError.rustPanic(try FfiConverterString.lift(callStatus.errorBuf))
+            throw try UniffiInternalError.rustPanic(FfiConverterString.lift(callStatus.errorBuf))
         } else {
             callStatus.errorBuf.deallocate()
             throw UniffiInternalError.rustPanic("Rust panic")
@@ -335,7 +335,7 @@ private struct FfiConverterString: FfiConverter {
 
     static func read(from buf: Reader) throws -> String {
         let len: Int32 = try buf.readInt()
-        return String(bytes: try buf.readBytes(count: Int(len)), encoding: String.Encoding.utf8)!
+        return try String(bytes: buf.readBytes(count: Int(len)), encoding: String.Encoding.utf8)!
     }
 
     static func write(_ value: String, into buf: Writer) {
@@ -401,21 +401,19 @@ public class ComposerModel: ComposerModelProtocol {
 
     public func setContentFromHtml(html: String) throws -> ComposerUpdate {
         return try FfiConverterTypeComposerUpdate.lift(
-            try
-                rustCallWithError(FfiConverterTypeDomCreationError.self) {
-                    wysiwyg_composer_cbc9_ComposerModel_set_content_from_html(self.pointer,
-                                                                              FfiConverterString.lower(html), $0)
-                }
+            rustCallWithError(FfiConverterTypeDomCreationError.self) {
+                wysiwyg_composer_cbc9_ComposerModel_set_content_from_html(self.pointer,
+                                                                          FfiConverterString.lower(html), $0)
+            }
         )
     }
 
     public func setContentFromMarkdown(markdown: String) throws -> ComposerUpdate {
         return try FfiConverterTypeComposerUpdate.lift(
-            try
-                rustCallWithError(FfiConverterTypeDomCreationError.self) {
-                    wysiwyg_composer_cbc9_ComposerModel_set_content_from_markdown(self.pointer,
-                                                                                  FfiConverterString.lower(markdown), $0)
-                }
+            rustCallWithError(FfiConverterTypeDomCreationError.self) {
+                wysiwyg_composer_cbc9_ComposerModel_set_content_from_markdown(self.pointer,
+                                                                              FfiConverterString.lower(markdown), $0)
+            }
         )
     }
 
@@ -1131,8 +1129,8 @@ private struct FfiConverterTypeLinkAction: FfiConverterRustBuffer {
 
         case 2: return .create
 
-        case 3: return .edit(
-                link: try FfiConverterString.read(from: buf)
+        case 3: return try .edit(
+                link: FfiConverterString.read(from: buf)
             )
 
         default: throw UniffiInternalError.unexpectedEnumCase
@@ -1174,8 +1172,8 @@ private struct FfiConverterTypeMenuAction: FfiConverterRustBuffer {
 
         case 2: return .none
 
-        case 3: return .suggestion(
-                suggestionPattern: try FfiConverterTypeSuggestionPattern.read(from: buf)
+        case 3: return try .suggestion(
+                suggestionPattern: FfiConverterTypeSuggestionPattern.read(from: buf)
             )
 
         default: throw UniffiInternalError.unexpectedEnumCase
@@ -1214,8 +1212,8 @@ private struct FfiConverterTypeMenuState: FfiConverterRustBuffer {
         switch variant {
         case 1: return .keep
 
-        case 2: return .update(
-                actionStates: try FfiConverterDictionaryTypeComposerActionTypeActionState.read(from: buf)
+        case 2: return try .update(
+                actionStates: FfiConverterDictionaryTypeComposerActionTypeActionState.read(from: buf)
             )
 
         default: throw UniffiInternalError.unexpectedEnumCase
@@ -1292,15 +1290,15 @@ private struct FfiConverterTypeTextUpdate: FfiConverterRustBuffer {
         switch variant {
         case 1: return .keep
 
-        case 2: return .replaceAll(
-                replacementHtml: try FfiConverterSequenceUInt16.read(from: buf),
-                startUtf16Codeunit: try FfiConverterUInt32.read(from: buf),
-                endUtf16Codeunit: try FfiConverterUInt32.read(from: buf)
+        case 2: return try .replaceAll(
+                replacementHtml: FfiConverterSequenceUInt16.read(from: buf),
+                startUtf16Codeunit: FfiConverterUInt32.read(from: buf),
+                endUtf16Codeunit: FfiConverterUInt32.read(from: buf)
             )
 
-        case 3: return .select(
-                startUtf16Codeunit: try FfiConverterUInt32.read(from: buf),
-                endUtf16Codeunit: try FfiConverterUInt32.read(from: buf)
+        case 3: return try .select(
+                startUtf16Codeunit: FfiConverterUInt32.read(from: buf),
+                endUtf16Codeunit: FfiConverterUInt32.read(from: buf)
             )
 
         default: throw UniffiInternalError.unexpectedEnumCase
@@ -1342,12 +1340,12 @@ private struct FfiConverterTypeDomCreationError: FfiConverterRustBuffer {
     static func read(from buf: Reader) throws -> DomCreationError {
         let variant: Int32 = try buf.readInt()
         switch variant {
-        case 1: return .MarkdownParseError(
-                message: try FfiConverterString.read(from: buf)
+        case 1: return try .MarkdownParseError(
+                message: FfiConverterString.read(from: buf)
             )
 
-        case 2: return .HtmlParseError(
-                message: try FfiConverterString.read(from: buf)
+        case 2: return try .HtmlParseError(
+                message: FfiConverterString.read(from: buf)
             )
 
         default: throw UniffiInternalError.unexpectedEnumCase
@@ -1386,7 +1384,7 @@ private struct FfiConverterSequenceUInt16: FfiConverterRustBuffer {
         var seq = [UInt16]()
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
-            seq.append(try FfiConverterUInt16.read(from: buf))
+            try seq.append(FfiConverterUInt16.read(from: buf))
         }
         return seq
     }

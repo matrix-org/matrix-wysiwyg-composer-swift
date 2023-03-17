@@ -40,8 +40,12 @@ public class WysiwygComposerViewModel: WysiwygComposerViewModelProtocol, Observa
 
     /// The composer minimal height.
     public let minHeight: CGFloat
+    /// The permalink replacer defined by the hosting application.
+    public var permalinkReplacer: PermalinkReplacer?
     /// Published object for the composer attributed content.
     @Published public var attributedContent: WysiwygComposerAttributedContent = .init()
+    /// Published value for the content of the text view in plain text mode.
+    @Published public var plainTextContent = NSAttributedString()
     /// Published boolean for the composer empty content state.
     @Published public var isContentEmpty = true
     /// Published value for the composer required height to fit entirely without scrolling.
@@ -99,7 +103,7 @@ public class WysiwygComposerViewModel: WysiwygComposerViewModelProtocol, Observa
     /// The current composer content.
     public var content: WysiwygComposerContent {
         if plainTextMode {
-            _ = model.setContentFromMarkdown(markdown: textView.text)
+            _ = model.setContentFromMarkdown(markdown: computeMarkdownContent())
         }
         return WysiwygComposerContent(markdown: model.getContentAsMarkdown(),
                                       html: model.getContentAsHtml())
@@ -115,8 +119,7 @@ public class WysiwygComposerViewModel: WysiwygComposerViewModelProtocol, Observa
     }
 
     private var hasPendingFormats = false
-
-    private var permalinkReplacer: PermalinkReplacer?
+    private var storedLinkActionState: ActionState?
 
     // MARK: - Public
 
@@ -158,6 +161,10 @@ public class WysiwygComposerViewModel: WysiwygComposerViewModelProtocol, Observa
             }
             .store(in: &cancellables)
     }
+
+    deinit {
+        permalinkReplacer = nil
+    }
 }
 
 // MARK: - Public
@@ -194,6 +201,9 @@ public extension WysiwygComposerViewModel {
     func setHtmlContent(_ html: String) {
         let update = model.setContentFromHtml(html: html)
         applyUpdate(update)
+        if plainTextMode {
+            updatePlainTextMode(true)
+        }
     }
 
     /// Clear the content of the composer.
@@ -336,6 +346,7 @@ public extension WysiwygComposerViewModel {
             if textView.text.isEmpty != isContentEmpty {
                 isContentEmpty = textView.text.isEmpty
             }
+            plainTextContent = textView.attributedText
         } else {
             reconciliateIfNeeded()
             applyPendingFormatsIfNeeded()
@@ -397,6 +408,7 @@ private extension WysiwygComposerViewModel {
         switch update.menuState() {
         case let .update(actionStates: actionStates):
             self.actionStates = actionStates
+            storedLinkActionState = actionStates[.link]
         default:
             break
         }
@@ -408,6 +420,17 @@ private extension WysiwygComposerViewModel {
             suggestionPattern = nil
         case let .suggestion(suggestionPattern: pattern):
             suggestionPattern = pattern
+        }
+
+        disableLinkActionIfNeeded()
+    }
+
+    /// Disable the link action button if we are near a pillified version of a link.
+    func disableLinkActionIfNeeded() {
+        if attributedContent.text.hasReplacementLinkNear(in: attributedContent.selection) {
+            actionStates[.link] = .disabled
+        } else {
+            actionStates[.link] = storedLinkActionState
         }
     }
 
@@ -480,14 +503,18 @@ private extension WysiwygComposerViewModel {
     /// - Parameter enabled: whether plain text mode is enabled
     func updatePlainTextMode(_ enabled: Bool) {
         if enabled {
-            let attributed = NSAttributedString(string: model.getContentAsMarkdown(),
+            var attributed = NSAttributedString(string: model.getContentAsMarkdown(),
                                                 attributes: defaultTextAttributes)
+            if let permalinkReplacer {
+                attributed = permalinkReplacer.postProcessMarkdown(in: attributed)
+            }
             textView.attributedText = attributed
             updateCompressedHeightIfNeeded()
         } else {
-            let update = model.setContentFromMarkdown(markdown: textView.text)
+            let update = model.setContentFromMarkdown(markdown: computeMarkdownContent())
             applyUpdate(update)
             updateTextView()
+            plainTextContent = NSAttributedString()
         }
     }
 
@@ -542,6 +569,21 @@ private extension WysiwygComposerViewModel {
         textView.apply(attributedContent)
         updateCompressedHeightIfNeeded()
         hasPendingFormats = false
+    }
+
+    /// Compute the current content of the `UITextView`, as markdown.
+    ///
+    /// - Returns: A markdown string.
+    func computeMarkdownContent() -> String {
+        let markdownContent: String
+        if let permalinkReplacer, let attributedText = textView.attributedText {
+            // `PermalinkReplacer` should restore altered content to valid markdown.
+            markdownContent = permalinkReplacer.restoreMarkdown(in: attributedText)
+        } else {
+            markdownContent = textView.text
+        }
+
+        return markdownContent
     }
 }
 
