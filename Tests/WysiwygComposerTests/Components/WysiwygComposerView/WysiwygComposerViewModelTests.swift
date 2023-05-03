@@ -25,42 +25,24 @@ final class WysiwygComposerViewModelTests: XCTestCase {
         viewModel.clearContent()
     }
 
+    override func tearDownWithError() throws {
+        viewModel.plainTextMode = false
+    }
+
     func testIsContentEmpty() throws {
         XCTAssertTrue(viewModel.isContentEmpty)
 
-        let expectFalse = expectation(description: "Await isContentEmpty false")
-        let cancellableFalse = viewModel.$isContentEmpty
-            // Ignore on subscribe publish.
-            .removeDuplicates()
-            .dropFirst()
-            .sink(receiveValue: { isEmpty in
-                XCTAssertFalse(isEmpty)
-                expectFalse.fulfill()
-            })
-
+        let expectFalse = expectContentEmpty(false)
         _ = viewModel.replaceText(range: .zero,
                                   replacementText: "Test")
         viewModel.textView.attributedText = viewModel.attributedContent.text
+        waitExpectation(expectation: expectFalse, timeout: 2.0)
 
-        wait(for: [expectFalse], timeout: 2.0)
-        cancellableFalse.cancel()
-
-        let expectTrue = expectation(description: "Await isContentEmpty true")
-        let cancellableTrue = viewModel.$isContentEmpty
-            // Ignore on subscribe publish.
-            .removeDuplicates()
-            .dropFirst()
-            .sink(receiveValue: { isEmpty in
-                XCTAssertTrue(isEmpty)
-                expectTrue.fulfill()
-            })
-
+        let expectTrue = expectContentEmpty(true)
         _ = viewModel.replaceText(range: .init(location: 0, length: viewModel.attributedContent.text.length),
                                   replacementText: "")
         viewModel.textView.attributedText = viewModel.attributedContent.text
-
-        wait(for: [expectTrue], timeout: 2.0)
-        cancellableTrue.cancel()
+        waitExpectation(expectation: expectTrue, timeout: 2.0)
     }
 
     func testSimpleTextInputIsAccepted() throws {
@@ -158,10 +140,10 @@ final class WysiwygComposerViewModelTests: XCTestCase {
         viewModel.apply(.orderedList)
         viewModel.apply(.bold)
         viewModel.apply(.italic)
-        viewModel.typeTrailingText("Formatted")
+        mockTrailingTyping("Formatted")
         // Enter
-        viewModel.typeTrailingText("\n")
-        viewModel.typeTrailingText("Still formatted")
+        mockTrailingTyping("\n")
+        mockTrailingTyping("Still formatted")
         XCTAssertTrue(
             viewModel
                 .textView
@@ -169,6 +151,100 @@ final class WysiwygComposerViewModelTests: XCTestCase {
                 .fontSymbolicTraits(at: viewModel.textView.attributedText.length - 1)
                 .contains([.traitBold, .traitItalic])
         )
+    }
+}
+
+// MARK: - WysiwygTestExpectation
+
+extension WysiwygComposerViewModelTests {
+    /// Defines a test expectation.
+    struct WysiwygTestExpectation {
+        let value: XCTestExpectation
+        let cancellable: AnyCancellable
+    }
+
+    /// Wait for an expectation to be fulfilled.
+    ///
+    /// - Parameters:
+    ///   - expectation: Expectation to fulfill.
+    ///   - timeout: Timeout for failure.
+    func waitExpectation(expectation: WysiwygTestExpectation, timeout: TimeInterval) {
+        wait(for: [expectation.value], timeout: timeout)
+        expectation.cancellable.cancel()
+    }
+
+    /// Create an expectation for empty content status to be published by the view model.
+    ///
+    /// - Parameters:
+    ///   - expectedIsContentEmpty: Expected `isContentEmpty` value.
+    ///   - description: Description for expectation.
+    /// - Returns: Expectation to be fulfilled. Can be used with `waitExpectation`.
+    func expectContentEmpty(_ expectedIsContentEmpty: Bool,
+                            description: String = "Await isContentEmpty") -> WysiwygTestExpectation {
+        let expectation = expectation(description: description)
+        let cancellable = viewModel.$isContentEmpty
+            // Ignore on subscribe publish.
+            .removeDuplicates()
+            .dropFirst()
+            .sink(receiveValue: { isContentEmpty in
+                // Assert the plain text,
+                XCTAssertEqual(
+                    isContentEmpty,
+                    expectedIsContentEmpty
+                )
+                expectation.fulfill()
+            })
+        return WysiwygTestExpectation(value: expectation, cancellable: cancellable)
+    }
+}
+
+// MARK: - Helpers
+
+extension WysiwygComposerViewModelTests {
+    /// Mock typing at given location.
+    ///
+    /// - Parameters:
+    ///   - text: text to type
+    ///   - location: index in text view's attributed string
+    func mockTyping(_ text: String, at location: Int) {
+        guard location <= viewModel.textView.attributedText.length else {
+            fatalError("Invalid location index")
+        }
+
+        let range = NSRange(location: location, length: 0)
+        let shouldAcceptChange = viewModel.replaceText(range: range, replacementText: text)
+        if shouldAcceptChange {
+            // Force apply since the text view should've updated by itself
+            viewModel.textView.apply(viewModel.attributedContent)
+        }
+    }
+
+    /// Mock typing trailing text.
+    ///
+    /// - Parameter text: text to type
+    func mockTrailingTyping(_ text: String) {
+        mockTyping(text, at: viewModel.textView.attributedText.length)
+    }
+
+    /// Mock backspacing at given location.
+    ///
+    /// - Parameter location: index in text view's attributed string
+    func mockBackspace(at location: Int) {
+        guard location <= viewModel.textView.attributedText.length else {
+            fatalError("Invalid location index")
+        }
+
+        let range: NSRange = location == 0 ? .zero : NSRange(location: location - 1, length: 1)
+        let shouldAcceptChange = viewModel.replaceText(range: range, replacementText: "")
+        if shouldAcceptChange {
+            // Force apply since the text view should've updated by itself
+            viewModel.textView.apply(viewModel.attributedContent)
+        }
+    }
+
+    /// Mock backspacing from trailing position.
+    func mockTrailingBackspace() {
+        mockBackspace(at: viewModel.textView.attributedText.length)
     }
 }
 
@@ -183,13 +259,5 @@ private extension WysiwygComposerViewModelTests {
         // Set selection where we want it, as setting the content automatically moves cursor to the end.
         viewModel.textView.selectedRange = selectedRange
         viewModel.didUpdateText()
-    }
-}
-
-private extension WysiwygComposerViewModel {
-    func typeTrailingText(_ text: String) {
-        let lastChar = textView.attributedText.length - 1
-        let range = NSRange(location: lastChar, length: 0)
-        _ = replaceText(range: range, replacementText: text)
     }
 }

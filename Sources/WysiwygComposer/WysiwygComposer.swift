@@ -19,13 +19,13 @@ private extension RustBuffer {
     }
 
     static func from(_ ptr: UnsafeBufferPointer<UInt8>) -> RustBuffer {
-        try! rustCall { ffi_wysiwyg_composer_5191_rustbuffer_from_bytes(ForeignBytes(bufferPointer: ptr), $0) }
+        try! rustCall { ffi_wysiwyg_composer_c3c5_rustbuffer_from_bytes(ForeignBytes(bufferPointer: ptr), $0) }
     }
 
     // Frees the buffer in place.
     // The buffer must not be used after this is called.
     func deallocate() {
-        try! rustCall { ffi_wysiwyg_composer_5191_rustbuffer_free(self, $0) }
+        try! rustCall { ffi_wysiwyg_composer_c3c5_rustbuffer_free(self, $0) }
     }
 }
 
@@ -371,9 +371,9 @@ public protocol ComposerModelProtocol {
     func redo() throws -> ComposerUpdate
     func indent() throws -> ComposerUpdate
     func unindent() throws -> ComposerUpdate
-    func setLink(link: String) throws -> ComposerUpdate
-    func setLinkWithText(link: String, text: String) throws -> ComposerUpdate
-    func setLinkSuggestion(link: String, text: String, suggestion: SuggestionPattern, attributes: [Attribute]) throws -> ComposerUpdate
+    func setLink(url: String, attributes: [Attribute]) throws -> ComposerUpdate
+    func setLinkWithText(url: String, text: String, attributes: [Attribute]) throws -> ComposerUpdate
+    func setLinkSuggestion(url: String, text: String, suggestion: SuggestionPattern, attributes: [Attribute]) throws -> ComposerUpdate
     func removeLinks() throws -> ComposerUpdate
     func codeBlock() throws -> ComposerUpdate
     func quote() throws -> ComposerUpdate
@@ -396,13 +396,13 @@ public class ComposerModel: ComposerModelProtocol {
     }
 
     deinit {
-        try! rustCall { ffi_wysiwyg_composer_5191_ComposerModel_object_free(pointer, $0) }
+        try! rustCall { ffi_wysiwyg_composer_c3c5_ComposerModel_object_free(pointer, $0) }
     }
 
     public func setContentFromHtml(html: String) throws -> ComposerUpdate {
         return try FfiConverterTypeComposerUpdate.lift(
             rustCallWithError(FfiConverterTypeDomCreationError.self) {
-                wysiwyg_composer_5191_ComposerModel_set_content_from_html(self.pointer,
+                wysiwyg_composer_c3c5_ComposerModel_set_content_from_html(self.pointer,
                                                                           FfiConverterString.lower(html), $0)
             }
         )
@@ -411,7 +411,7 @@ public class ComposerModel: ComposerModelProtocol {
     public func setContentFromMarkdown(markdown: String) throws -> ComposerUpdate {
         return try FfiConverterTypeComposerUpdate.lift(
             rustCallWithError(FfiConverterTypeDomCreationError.self) {
-                wysiwyg_composer_5191_ComposerModel_set_content_from_markdown(self.pointer,
+                wysiwyg_composer_c3c5_ComposerModel_set_content_from_markdown(self.pointer,
                                                                               FfiConverterString.lower(markdown), $0)
             }
         )
@@ -421,7 +421,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterString.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_get_content_as_html(self.pointer, $0)
+                    wysiwyg_composer_c3c5_ComposerModel_get_content_as_html(self.pointer, $0)
                 }
         )
     }
@@ -430,7 +430,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterString.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_get_content_as_markdown(self.pointer, $0)
+                    wysiwyg_composer_c3c5_ComposerModel_get_content_as_markdown(self.pointer, $0)
                 }
         )
     }
@@ -439,7 +439,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterString.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_get_content_as_plain_text(self.pointer, $0)
+                    wysiwyg_composer_c3c5_ComposerModel_get_content_as_plain_text(self.pointer, $0)
                 }
         )
     }
@@ -448,7 +448,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_clear(self.pointer, $0)
+                    wysiwyg_composer_c3c5_ComposerModel_clear(self.pointer, $0)
                 }
         )
     }
@@ -457,7 +457,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_select(self.pointer,
+                    wysiwyg_composer_c3c5_ComposerModel_select(self.pointer,
                                                                FfiConverterUInt32.lower(startUtf16Codeunit),
                                                                FfiConverterUInt32.lower(endUtf16Codeunit), $0)
                 }
@@ -468,7 +468,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_replace_text(self.pointer,
+                    wysiwyg_composer_c3c5_ComposerModel_replace_text(self.pointer,
                                                                      FfiConverterString.lower(newText), $0)
                 }
         )
@@ -478,7 +478,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_replace_text_in(self.pointer,
+                    wysiwyg_composer_c3c5_ComposerModel_replace_text_in(self.pointer,
                                                                         FfiConverterString.lower(newText),
                                                                         FfiConverterUInt32.lower(start),
                                                                         FfiConverterUInt32.lower(end), $0)
@@ -490,7 +490,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_replace_text_suggestion(self.pointer,
+                    wysiwyg_composer_c3c5_ComposerModel_replace_text_suggestion(self.pointer,
                                                                                 FfiConverterString.lower(newText),
                                                                                 FfiConverterTypeSuggestionPattern.lower(suggestion), $0)
                 }
@@ -501,7 +501,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_backspace(self.pointer, $0)
+                    wysiwyg_composer_c3c5_ComposerModel_backspace(self.pointer, $0)
                 }
         )
     }
@@ -510,7 +510,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_delete(self.pointer, $0)
+                    wysiwyg_composer_c3c5_ComposerModel_delete(self.pointer, $0)
                 }
         )
     }
@@ -519,7 +519,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_delete_in(self.pointer,
+                    wysiwyg_composer_c3c5_ComposerModel_delete_in(self.pointer,
                                                                   FfiConverterUInt32.lower(start),
                                                                   FfiConverterUInt32.lower(end), $0)
                 }
@@ -530,7 +530,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_enter(self.pointer, $0)
+                    wysiwyg_composer_c3c5_ComposerModel_enter(self.pointer, $0)
                 }
         )
     }
@@ -539,7 +539,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_bold(self.pointer, $0)
+                    wysiwyg_composer_c3c5_ComposerModel_bold(self.pointer, $0)
                 }
         )
     }
@@ -548,7 +548,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_italic(self.pointer, $0)
+                    wysiwyg_composer_c3c5_ComposerModel_italic(self.pointer, $0)
                 }
         )
     }
@@ -557,7 +557,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_strike_through(self.pointer, $0)
+                    wysiwyg_composer_c3c5_ComposerModel_strike_through(self.pointer, $0)
                 }
         )
     }
@@ -566,7 +566,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_underline(self.pointer, $0)
+                    wysiwyg_composer_c3c5_ComposerModel_underline(self.pointer, $0)
                 }
         )
     }
@@ -575,7 +575,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_inline_code(self.pointer, $0)
+                    wysiwyg_composer_c3c5_ComposerModel_inline_code(self.pointer, $0)
                 }
         )
     }
@@ -584,7 +584,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_ordered_list(self.pointer, $0)
+                    wysiwyg_composer_c3c5_ComposerModel_ordered_list(self.pointer, $0)
                 }
         )
     }
@@ -593,7 +593,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_unordered_list(self.pointer, $0)
+                    wysiwyg_composer_c3c5_ComposerModel_unordered_list(self.pointer, $0)
                 }
         )
     }
@@ -602,7 +602,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_undo(self.pointer, $0)
+                    wysiwyg_composer_c3c5_ComposerModel_undo(self.pointer, $0)
                 }
         )
     }
@@ -611,7 +611,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_redo(self.pointer, $0)
+                    wysiwyg_composer_c3c5_ComposerModel_redo(self.pointer, $0)
                 }
         )
     }
@@ -620,7 +620,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_indent(self.pointer, $0)
+                    wysiwyg_composer_c3c5_ComposerModel_indent(self.pointer, $0)
                 }
         )
     }
@@ -629,38 +629,40 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_unindent(self.pointer, $0)
+                    wysiwyg_composer_c3c5_ComposerModel_unindent(self.pointer, $0)
                 }
         )
     }
 
-    public func setLink(link: String) throws -> ComposerUpdate {
+    public func setLink(url: String, attributes: [Attribute]) throws -> ComposerUpdate {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_set_link(self.pointer,
-                                                                 FfiConverterString.lower(link), $0)
+                    wysiwyg_composer_c3c5_ComposerModel_set_link(self.pointer,
+                                                                 FfiConverterString.lower(url),
+                                                                 FfiConverterSequenceTypeAttribute.lower(attributes), $0)
                 }
         )
     }
 
-    public func setLinkWithText(link: String, text: String) throws -> ComposerUpdate {
+    public func setLinkWithText(url: String, text: String, attributes: [Attribute]) throws -> ComposerUpdate {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_set_link_with_text(self.pointer,
-                                                                           FfiConverterString.lower(link),
-                                                                           FfiConverterString.lower(text), $0)
+                    wysiwyg_composer_c3c5_ComposerModel_set_link_with_text(self.pointer,
+                                                                           FfiConverterString.lower(url),
+                                                                           FfiConverterString.lower(text),
+                                                                           FfiConverterSequenceTypeAttribute.lower(attributes), $0)
                 }
         )
     }
 
-    public func setLinkSuggestion(link: String, text: String, suggestion: SuggestionPattern, attributes: [Attribute]) throws -> ComposerUpdate {
+    public func setLinkSuggestion(url: String, text: String, suggestion: SuggestionPattern, attributes: [Attribute]) throws -> ComposerUpdate {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_set_link_suggestion(self.pointer,
-                                                                            FfiConverterString.lower(link),
+                    wysiwyg_composer_c3c5_ComposerModel_set_link_suggestion(self.pointer,
+                                                                            FfiConverterString.lower(url),
                                                                             FfiConverterString.lower(text),
                                                                             FfiConverterTypeSuggestionPattern.lower(suggestion),
                                                                             FfiConverterSequenceTypeAttribute.lower(attributes), $0)
@@ -672,7 +674,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_remove_links(self.pointer, $0)
+                    wysiwyg_composer_c3c5_ComposerModel_remove_links(self.pointer, $0)
                 }
         )
     }
@@ -681,7 +683,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_code_block(self.pointer, $0)
+                    wysiwyg_composer_c3c5_ComposerModel_code_block(self.pointer, $0)
                 }
         )
     }
@@ -690,7 +692,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_quote(self.pointer, $0)
+                    wysiwyg_composer_c3c5_ComposerModel_quote(self.pointer, $0)
                 }
         )
     }
@@ -698,7 +700,7 @@ public class ComposerModel: ComposerModelProtocol {
     public func debugPanic() {
         try!
             rustCall {
-                wysiwyg_composer_5191_ComposerModel_debug_panic(self.pointer, $0)
+                wysiwyg_composer_c3c5_ComposerModel_debug_panic(self.pointer, $0)
             }
     }
 
@@ -706,7 +708,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterString.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_to_tree(self.pointer, $0)
+                    wysiwyg_composer_c3c5_ComposerModel_to_tree(self.pointer, $0)
                 }
         )
     }
@@ -715,7 +717,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterString.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_to_example_format(self.pointer, $0)
+                    wysiwyg_composer_c3c5_ComposerModel_to_example_format(self.pointer, $0)
                 }
         )
     }
@@ -724,7 +726,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterTypeComposerState.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_get_current_dom_state(self.pointer, $0)
+                    wysiwyg_composer_c3c5_ComposerModel_get_current_dom_state(self.pointer, $0)
                 }
         )
     }
@@ -733,7 +735,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterDictionaryTypeComposerActionTypeActionState.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_action_states(self.pointer, $0)
+                    wysiwyg_composer_c3c5_ComposerModel_action_states(self.pointer, $0)
                 }
         )
     }
@@ -742,7 +744,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterTypeLinkAction.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_5191_ComposerModel_get_link_action(self.pointer, $0)
+                    wysiwyg_composer_c3c5_ComposerModel_get_link_action(self.pointer, $0)
                 }
         )
     }
@@ -795,14 +797,14 @@ public class ComposerUpdate: ComposerUpdateProtocol {
     }
 
     deinit {
-        try! rustCall { ffi_wysiwyg_composer_5191_ComposerUpdate_object_free(pointer, $0) }
+        try! rustCall { ffi_wysiwyg_composer_c3c5_ComposerUpdate_object_free(pointer, $0) }
     }
 
     public func textUpdate() -> TextUpdate {
         return try! FfiConverterTypeTextUpdate.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_5191_ComposerUpdate_text_update(self.pointer, $0)
+                    wysiwyg_composer_c3c5_ComposerUpdate_text_update(self.pointer, $0)
                 }
         )
     }
@@ -811,7 +813,7 @@ public class ComposerUpdate: ComposerUpdateProtocol {
         return try! FfiConverterTypeMenuState.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_5191_ComposerUpdate_menu_state(self.pointer, $0)
+                    wysiwyg_composer_c3c5_ComposerUpdate_menu_state(self.pointer, $0)
                 }
         )
     }
@@ -820,7 +822,7 @@ public class ComposerUpdate: ComposerUpdateProtocol {
         return try! FfiConverterTypeMenuAction.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_5191_ComposerUpdate_menu_action(self.pointer, $0)
+                    wysiwyg_composer_c3c5_ComposerUpdate_menu_action(self.pointer, $0)
                 }
         )
     }
@@ -1160,7 +1162,7 @@ extension ComposerAction: Equatable, Hashable {}
 public enum LinkAction {
     case createWithText
     case create
-    case edit(link: String)
+    case edit(url: String)
     case disabled
 }
 
@@ -1175,7 +1177,7 @@ private struct FfiConverterTypeLinkAction: FfiConverterRustBuffer {
         case 2: return .create
 
         case 3: return try .edit(
-                link: FfiConverterString.read(from: buf)
+                url: FfiConverterString.read(from: buf)
             )
 
         case 4: return .disabled
@@ -1192,9 +1194,9 @@ private struct FfiConverterTypeLinkAction: FfiConverterRustBuffer {
         case .create:
             buf.writeInt(Int32(2))
 
-        case let .edit(link):
+        case let .edit(url):
             buf.writeInt(Int32(3))
-            FfiConverterString.write(link, into: buf)
+            FfiConverterString.write(url, into: buf)
 
         case .disabled:
             buf.writeInt(Int32(4))
@@ -1490,7 +1492,7 @@ public func newComposerModel() -> ComposerModel {
         try!
 
             rustCall {
-                wysiwyg_composer_5191_new_composer_model($0)
+                wysiwyg_composer_c3c5_new_composer_model($0)
             }
     )
 }

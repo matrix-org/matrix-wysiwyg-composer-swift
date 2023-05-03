@@ -22,18 +22,20 @@ extension WysiwygComposerTests {
         let model = ComposerModelWrapper()
         let update = model.replaceText(newText: "@alic")
 
-        guard case .suggestion(suggestionPattern: let suggestionPattern) = update.menuAction() else {
-            XCTFail("No suggestion found")
+        guard case .suggestion(suggestionPattern: let suggestionPattern) = update.menuAction(),
+              let attributes = suggestionPattern.key.mentionType?.attributes
+        else {
+            XCTFail("No user suggestion found")
             return
         }
 
         model
             .action {
                 $0.setLinkSuggestion(
-                    link: "https://matrix.to/#/@alice:matrix.org",
+                    url: "https://matrix.to/#/@alice:matrix.org",
                     text: "Alice",
                     suggestion: suggestionPattern,
-                    mentionType: .user
+                    attributes: attributes
                 )
             }
             .assertHtml(
@@ -47,18 +49,20 @@ extension WysiwygComposerTests {
         let model = ComposerModelWrapper()
         let update = model.replaceText(newText: "#roo")
 
-        guard case .suggestion(suggestionPattern: let suggestionPattern) = update.menuAction() else {
-            XCTFail("No suggestion found")
+        guard case .suggestion(suggestionPattern: let suggestionPattern) = update.menuAction(),
+              let attributes = suggestionPattern.key.mentionType?.attributes
+        else {
+            XCTFail("No room suggestion found")
             return
         }
 
         model
             .action {
                 $0.setLinkSuggestion(
-                    link: "https://matrix.to/#/#room1:matrix.org",
+                    url: "https://matrix.to/#/#room1:matrix.org",
                     text: "Room 1",
                     suggestion: suggestionPattern,
-                    mentionType: .room
+                    attributes: attributes
                 )
             }
             .assertHtml(
