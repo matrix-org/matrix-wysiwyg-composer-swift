@@ -1,4 +1,4 @@
-// 
+//
 // Copyright 2023 The Matrix.org Foundation C.I.C
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,13 +16,17 @@
 
 import Foundation
 
+// MARK: - Public
+
+/// Defines a mention type available in the Rich Text Editor.
 public enum WysiwygMentionType: String {
     case user
     case room
 }
 
-extension WysiwygMentionType {
-    public var patternKey: PatternKey {
+public extension WysiwygMentionType {
+    /// Associated pattern key.
+    var patternKey: PatternKey {
         switch self {
         case .user:
             return .at
@@ -32,15 +36,14 @@ extension WysiwygMentionType {
     }
 }
 
-extension PatternKey {
-    public var mentionType: WysiwygMentionType? {
-        switch self {
-        case .at:
-            return .user
-        case .hash:
-            return .room
-        case .slash:
-            return nil
-        }
+// MARK: - Internal
+
+extension WysiwygMentionType {
+    /// Default attributes.
+    var attributes: [Attribute] {
+        [
+            Attribute(key: "data-mention-type", value: rawValue),
+            Attribute(key: "contenteditable", value: "false"),
+        ]
     }
 }

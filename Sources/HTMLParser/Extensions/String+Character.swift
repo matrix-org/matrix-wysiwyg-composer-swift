@@ -25,9 +25,13 @@ public extension String {
     static let carriageReturn = "\r"
     /// String containing a single line feed character (`\n`)
     static let lineFeed = "\n"
+    /// String containing a single slash character(`/`)
+    static let slash = "/"
 }
 
 public extension Character {
     static let nbsp = Character(.nbsp)
     static let zwsp = Character(.zwsp)
+    static let lineFeed = Character(.lineFeed)
+    static let slash = Character(.slash)
 }
