@@ -46,195 +46,207 @@ typedef struct RustCallStatus {
 // ⚠️ increment the version suffix in all instances of UNIFFI_SHARED_HEADER_V4 in this file.           ⚠️
 #endif // def UNIFFI_SHARED_H
 
-void ffi_wysiwyg_composer_2551_ComposerModel_object_free(
+void ffi_wysiwyg_composer_a9c1_ComposerModel_object_free(
       void*_Nonnull ptr,
     RustCallStatus *_Nonnull out_status
     );
-void*_Nonnull wysiwyg_composer_2551_ComposerModel_set_content_from_html(
+void*_Nonnull wysiwyg_composer_a9c1_ComposerModel_set_content_from_html(
       void*_Nonnull ptr,RustBuffer html,
     RustCallStatus *_Nonnull out_status
     );
-void*_Nonnull wysiwyg_composer_2551_ComposerModel_set_content_from_markdown(
+void*_Nonnull wysiwyg_composer_a9c1_ComposerModel_set_content_from_markdown(
       void*_Nonnull ptr,RustBuffer markdown,
     RustCallStatus *_Nonnull out_status
     );
-RustBuffer wysiwyg_composer_2551_ComposerModel_get_content_as_html(
+RustBuffer wysiwyg_composer_a9c1_ComposerModel_get_content_as_html(
       void*_Nonnull ptr,
     RustCallStatus *_Nonnull out_status
     );
-RustBuffer wysiwyg_composer_2551_ComposerModel_get_content_as_message_html(
+RustBuffer wysiwyg_composer_a9c1_ComposerModel_get_content_as_message_html(
       void*_Nonnull ptr,
     RustCallStatus *_Nonnull out_status
     );
-RustBuffer wysiwyg_composer_2551_ComposerModel_get_content_as_markdown(
+RustBuffer wysiwyg_composer_a9c1_ComposerModel_get_content_as_markdown(
       void*_Nonnull ptr,
     RustCallStatus *_Nonnull out_status
     );
-RustBuffer wysiwyg_composer_2551_ComposerModel_get_content_as_plain_text(
+RustBuffer wysiwyg_composer_a9c1_ComposerModel_get_content_as_plain_text(
       void*_Nonnull ptr,
     RustCallStatus *_Nonnull out_status
     );
-void*_Nonnull wysiwyg_composer_2551_ComposerModel_clear(
+void*_Nonnull wysiwyg_composer_a9c1_ComposerModel_clear(
       void*_Nonnull ptr,
     RustCallStatus *_Nonnull out_status
     );
-void*_Nonnull wysiwyg_composer_2551_ComposerModel_select(
+void*_Nonnull wysiwyg_composer_a9c1_ComposerModel_select(
       void*_Nonnull ptr,uint32_t start_utf16_codeunit,uint32_t end_utf16_codeunit,
     RustCallStatus *_Nonnull out_status
     );
-void*_Nonnull wysiwyg_composer_2551_ComposerModel_replace_text(
+void*_Nonnull wysiwyg_composer_a9c1_ComposerModel_replace_text(
       void*_Nonnull ptr,RustBuffer new_text,
     RustCallStatus *_Nonnull out_status
     );
-void*_Nonnull wysiwyg_composer_2551_ComposerModel_replace_text_in(
+void*_Nonnull wysiwyg_composer_a9c1_ComposerModel_replace_text_in(
       void*_Nonnull ptr,RustBuffer new_text,uint32_t start,uint32_t end,
     RustCallStatus *_Nonnull out_status
     );
-void*_Nonnull wysiwyg_composer_2551_ComposerModel_replace_text_suggestion(
+void*_Nonnull wysiwyg_composer_a9c1_ComposerModel_replace_text_suggestion(
       void*_Nonnull ptr,RustBuffer new_text,RustBuffer suggestion,
     RustCallStatus *_Nonnull out_status
     );
-void*_Nonnull wysiwyg_composer_2551_ComposerModel_backspace(
+void*_Nonnull wysiwyg_composer_a9c1_ComposerModel_backspace(
       void*_Nonnull ptr,
     RustCallStatus *_Nonnull out_status
     );
-void*_Nonnull wysiwyg_composer_2551_ComposerModel_delete(
+void*_Nonnull wysiwyg_composer_a9c1_ComposerModel_delete(
       void*_Nonnull ptr,
     RustCallStatus *_Nonnull out_status
     );
-void*_Nonnull wysiwyg_composer_2551_ComposerModel_delete_in(
+void*_Nonnull wysiwyg_composer_a9c1_ComposerModel_delete_in(
       void*_Nonnull ptr,uint32_t start,uint32_t end,
     RustCallStatus *_Nonnull out_status
     );
-void*_Nonnull wysiwyg_composer_2551_ComposerModel_enter(
+void*_Nonnull wysiwyg_composer_a9c1_ComposerModel_enter(
       void*_Nonnull ptr,
     RustCallStatus *_Nonnull out_status
     );
-void*_Nonnull wysiwyg_composer_2551_ComposerModel_bold(
+void*_Nonnull wysiwyg_composer_a9c1_ComposerModel_bold(
       void*_Nonnull ptr,
     RustCallStatus *_Nonnull out_status
     );
-void*_Nonnull wysiwyg_composer_2551_ComposerModel_italic(
+void*_Nonnull wysiwyg_composer_a9c1_ComposerModel_italic(
       void*_Nonnull ptr,
     RustCallStatus *_Nonnull out_status
     );
-void*_Nonnull wysiwyg_composer_2551_ComposerModel_strike_through(
+void*_Nonnull wysiwyg_composer_a9c1_ComposerModel_strike_through(
       void*_Nonnull ptr,
     RustCallStatus *_Nonnull out_status
     );
-void*_Nonnull wysiwyg_composer_2551_ComposerModel_underline(
+void*_Nonnull wysiwyg_composer_a9c1_ComposerModel_underline(
       void*_Nonnull ptr,
     RustCallStatus *_Nonnull out_status
     );
-void*_Nonnull wysiwyg_composer_2551_ComposerModel_inline_code(
+void*_Nonnull wysiwyg_composer_a9c1_ComposerModel_inline_code(
       void*_Nonnull ptr,
     RustCallStatus *_Nonnull out_status
     );
-void*_Nonnull wysiwyg_composer_2551_ComposerModel_ordered_list(
+void*_Nonnull wysiwyg_composer_a9c1_ComposerModel_ordered_list(
       void*_Nonnull ptr,
     RustCallStatus *_Nonnull out_status
     );
-void*_Nonnull wysiwyg_composer_2551_ComposerModel_unordered_list(
+void*_Nonnull wysiwyg_composer_a9c1_ComposerModel_unordered_list(
       void*_Nonnull ptr,
     RustCallStatus *_Nonnull out_status
     );
-void*_Nonnull wysiwyg_composer_2551_ComposerModel_undo(
+void*_Nonnull wysiwyg_composer_a9c1_ComposerModel_undo(
       void*_Nonnull ptr,
     RustCallStatus *_Nonnull out_status
     );
-void*_Nonnull wysiwyg_composer_2551_ComposerModel_redo(
+void*_Nonnull wysiwyg_composer_a9c1_ComposerModel_redo(
       void*_Nonnull ptr,
     RustCallStatus *_Nonnull out_status
     );
-void*_Nonnull wysiwyg_composer_2551_ComposerModel_indent(
+void*_Nonnull wysiwyg_composer_a9c1_ComposerModel_indent(
       void*_Nonnull ptr,
     RustCallStatus *_Nonnull out_status
     );
-void*_Nonnull wysiwyg_composer_2551_ComposerModel_unindent(
+void*_Nonnull wysiwyg_composer_a9c1_ComposerModel_unindent(
       void*_Nonnull ptr,
     RustCallStatus *_Nonnull out_status
     );
-void*_Nonnull wysiwyg_composer_2551_ComposerModel_set_link(
+void*_Nonnull wysiwyg_composer_a9c1_ComposerModel_set_link(
       void*_Nonnull ptr,RustBuffer url,RustBuffer attributes,
     RustCallStatus *_Nonnull out_status
     );
-void*_Nonnull wysiwyg_composer_2551_ComposerModel_set_link_with_text(
+void*_Nonnull wysiwyg_composer_a9c1_ComposerModel_set_link_with_text(
       void*_Nonnull ptr,RustBuffer url,RustBuffer text,RustBuffer attributes,
     RustCallStatus *_Nonnull out_status
     );
-void*_Nonnull wysiwyg_composer_2551_ComposerModel_set_link_suggestion(
+void*_Nonnull wysiwyg_composer_a9c1_ComposerModel_remove_links(
+      void*_Nonnull ptr,
+    RustCallStatus *_Nonnull out_status
+    );
+void*_Nonnull wysiwyg_composer_a9c1_ComposerModel_insert_at_room_mention(
+      void*_Nonnull ptr,
+    RustCallStatus *_Nonnull out_status
+    );
+void*_Nonnull wysiwyg_composer_a9c1_ComposerModel_insert_mention(
+      void*_Nonnull ptr,RustBuffer url,RustBuffer text,RustBuffer attributes,
+    RustCallStatus *_Nonnull out_status
+    );
+void*_Nonnull wysiwyg_composer_a9c1_ComposerModel_insert_at_room_mention_at_suggestion(
+      void*_Nonnull ptr,RustBuffer suggestion,
+    RustCallStatus *_Nonnull out_status
+    );
+void*_Nonnull wysiwyg_composer_a9c1_ComposerModel_insert_mention_at_suggestion(
       void*_Nonnull ptr,RustBuffer url,RustBuffer text,RustBuffer suggestion,RustBuffer attributes,
     RustCallStatus *_Nonnull out_status
     );
-void*_Nonnull wysiwyg_composer_2551_ComposerModel_remove_links(
+void*_Nonnull wysiwyg_composer_a9c1_ComposerModel_code_block(
       void*_Nonnull ptr,
     RustCallStatus *_Nonnull out_status
     );
-void*_Nonnull wysiwyg_composer_2551_ComposerModel_code_block(
+void*_Nonnull wysiwyg_composer_a9c1_ComposerModel_quote(
       void*_Nonnull ptr,
     RustCallStatus *_Nonnull out_status
     );
-void*_Nonnull wysiwyg_composer_2551_ComposerModel_quote(
+void wysiwyg_composer_a9c1_ComposerModel_debug_panic(
       void*_Nonnull ptr,
     RustCallStatus *_Nonnull out_status
     );
-void wysiwyg_composer_2551_ComposerModel_debug_panic(
+RustBuffer wysiwyg_composer_a9c1_ComposerModel_to_tree(
       void*_Nonnull ptr,
     RustCallStatus *_Nonnull out_status
     );
-RustBuffer wysiwyg_composer_2551_ComposerModel_to_tree(
+RustBuffer wysiwyg_composer_a9c1_ComposerModel_to_example_format(
       void*_Nonnull ptr,
     RustCallStatus *_Nonnull out_status
     );
-RustBuffer wysiwyg_composer_2551_ComposerModel_to_example_format(
+RustBuffer wysiwyg_composer_a9c1_ComposerModel_get_current_dom_state(
       void*_Nonnull ptr,
     RustCallStatus *_Nonnull out_status
     );
-RustBuffer wysiwyg_composer_2551_ComposerModel_get_current_dom_state(
+RustBuffer wysiwyg_composer_a9c1_ComposerModel_action_states(
       void*_Nonnull ptr,
     RustCallStatus *_Nonnull out_status
     );
-RustBuffer wysiwyg_composer_2551_ComposerModel_action_states(
+RustBuffer wysiwyg_composer_a9c1_ComposerModel_get_link_action(
       void*_Nonnull ptr,
     RustCallStatus *_Nonnull out_status
     );
-RustBuffer wysiwyg_composer_2551_ComposerModel_get_link_action(
+void ffi_wysiwyg_composer_a9c1_ComposerUpdate_object_free(
       void*_Nonnull ptr,
     RustCallStatus *_Nonnull out_status
     );
-void ffi_wysiwyg_composer_2551_ComposerUpdate_object_free(
+RustBuffer wysiwyg_composer_a9c1_ComposerUpdate_text_update(
       void*_Nonnull ptr,
     RustCallStatus *_Nonnull out_status
     );
-RustBuffer wysiwyg_composer_2551_ComposerUpdate_text_update(
+RustBuffer wysiwyg_composer_a9c1_ComposerUpdate_menu_state(
       void*_Nonnull ptr,
     RustCallStatus *_Nonnull out_status
     );
-RustBuffer wysiwyg_composer_2551_ComposerUpdate_menu_state(
+RustBuffer wysiwyg_composer_a9c1_ComposerUpdate_menu_action(
       void*_Nonnull ptr,
     RustCallStatus *_Nonnull out_status
     );
-RustBuffer wysiwyg_composer_2551_ComposerUpdate_menu_action(
-      void*_Nonnull ptr,
-    RustCallStatus *_Nonnull out_status
-    );
-void*_Nonnull wysiwyg_composer_2551_new_composer_model(
+void*_Nonnull wysiwyg_composer_a9c1_new_composer_model(
       
     RustCallStatus *_Nonnull out_status
     );
-RustBuffer ffi_wysiwyg_composer_2551_rustbuffer_alloc(
+RustBuffer ffi_wysiwyg_composer_a9c1_rustbuffer_alloc(
       int32_t size,
     RustCallStatus *_Nonnull out_status
     );
-RustBuffer ffi_wysiwyg_composer_2551_rustbuffer_from_bytes(
+RustBuffer ffi_wysiwyg_composer_a9c1_rustbuffer_from_bytes(
       ForeignBytes bytes,
     RustCallStatus *_Nonnull out_status
     );
-void ffi_wysiwyg_composer_2551_rustbuffer_free(
+void ffi_wysiwyg_composer_a9c1_rustbuffer_free(
       RustBuffer buf,
     RustCallStatus *_Nonnull out_status
     );
-RustBuffer ffi_wysiwyg_composer_2551_rustbuffer_reserve(
+RustBuffer ffi_wysiwyg_composer_a9c1_rustbuffer_reserve(
       RustBuffer buf,int32_t additional,
     RustCallStatus *_Nonnull out_status
     );
