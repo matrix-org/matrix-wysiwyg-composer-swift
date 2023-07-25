@@ -19,13 +19,13 @@ private extension RustBuffer {
     }
 
     static func from(_ ptr: UnsafeBufferPointer<UInt8>) -> RustBuffer {
-        try! rustCall { ffi_wysiwyg_composer_a9c1_rustbuffer_from_bytes(ForeignBytes(bufferPointer: ptr), $0) }
+        try! rustCall { ffi_wysiwyg_composer_rustbuffer_from_bytes(ForeignBytes(bufferPointer: ptr), $0) }
     }
 
     // Frees the buffer in place.
     // The buffer must not be used after this is called.
     func deallocate() {
-        try! rustCall { ffi_wysiwyg_composer_a9c1_rustbuffer_free(self, $0) }
+        try! rustCall { ffi_wysiwyg_composer_rustbuffer_free(self, $0) }
     }
 }
 
@@ -40,7 +40,7 @@ private extension ForeignBytes {
 // values of that type in a buffer.
 
 // Helper classes/extensions that don't change.
-// Someday, this will be in a libray of its own.
+// Someday, this will be in a library of its own.
 
 private extension Data {
     init(rustBuffer: RustBuffer) {
@@ -50,101 +50,100 @@ private extension Data {
     }
 }
 
-// A helper class to read values out of a byte buffer.
-private class Reader {
-    let data: Data
-    var offset: Data.Index
+// Define reader functionality.  Normally this would be defined in a class or
+// struct, but we use standalone functions instead in order to make external
+// types work.
+//
+// With external types, one swift source file needs to be able to call the read
+// method on another source file's FfiConverter, but then what visibility
+// should Reader have?
+// - If Reader is fileprivate, then this means the read() must also
+//   be fileprivate, which doesn't work with external types.
+// - If Reader is internal/public, we'll get compile errors since both source
+//   files will try define the same type.
+//
+// Instead, the read() method and these helper functions input a tuple of data
 
-    init(data: Data) {
-        self.data = data
-        offset = 0
-    }
-
-    // Reads an integer at the current offset, in big-endian order, and advances
-    // the offset on success. Throws if reading the integer would move the
-    // offset past the end of the buffer.
-    func readInt<T: FixedWidthInteger>() throws -> T {
-        let range = offset ..< offset + MemoryLayout<T>.size
-        guard data.count >= range.upperBound else {
-            throw UniffiInternalError.bufferOverflow
-        }
-        if T.self == UInt8.self {
-            let value = data[offset]
-            offset += 1
-            return value as! T
-        }
-        var value: T = 0
-        let _ = withUnsafeMutableBytes(of: &value) { data.copyBytes(to: $0, from: range) }
-        offset = range.upperBound
-        return value.bigEndian
-    }
-
-    // Reads an arbitrary number of bytes, to be used to read
-    // raw bytes, this is useful when lifting strings
-    func readBytes(count: Int) throws -> [UInt8] {
-        let range = offset ..< (offset + count)
-        guard data.count >= range.upperBound else {
-            throw UniffiInternalError.bufferOverflow
-        }
-        var value = [UInt8](repeating: 0, count: count)
-        value.withUnsafeMutableBufferPointer { buffer in
-            data.copyBytes(to: buffer, from: range)
-        }
-        offset = range.upperBound
-        return value
-    }
-
-    // Reads a float at the current offset.
-    @inlinable
-    func readFloat() throws -> Float {
-        return try Float(bitPattern: readInt())
-    }
-
-    // Reads a float at the current offset.
-    @inlinable
-    func readDouble() throws -> Double {
-        return try Double(bitPattern: readInt())
-    }
-
-    // Indicates if the offset has reached the end of the buffer.
-    @inlinable
-    func hasRemaining() -> Bool {
-        return offset < data.count
-    }
+private func createReader(data: Data) -> (data: Data, offset: Data.Index) {
+    (data: data, offset: 0)
 }
 
-// A helper class to write values into a byte buffer.
-private class Writer {
-    var bytes: [UInt8]
-    var offset: Array<UInt8>.Index
-
-    init() {
-        bytes = []
-        offset = 0
+// Reads an integer at the current offset, in big-endian order, and advances
+// the offset on success. Throws if reading the integer would move the
+// offset past the end of the buffer.
+private func readInt<T: FixedWidthInteger>(_ reader: inout (data: Data, offset: Data.Index)) throws -> T {
+    let range = reader.offset ..< reader.offset + MemoryLayout<T>.size
+    guard reader.data.count >= range.upperBound else {
+        throw UniffiInternalError.bufferOverflow
     }
-
-    func writeBytes<S>(_ byteArr: S) where S: Sequence, S.Element == UInt8 {
-        bytes.append(contentsOf: byteArr)
+    if T.self == UInt8.self {
+        let value = reader.data[reader.offset]
+        reader.offset += 1
+        return value as! T
     }
+    var value: T = 0
+    let _ = withUnsafeMutableBytes(of: &value) { reader.data.copyBytes(to: $0, from: range) }
+    reader.offset = range.upperBound
+    return value.bigEndian
+}
 
-    // Writes an integer in big-endian order.
-    //
-    // Warning: make sure what you are trying to write
-    // is in the correct type!
-    func writeInt<T: FixedWidthInteger>(_ value: T) {
-        var value = value.bigEndian
-        withUnsafeBytes(of: &value) { bytes.append(contentsOf: $0) }
+// Reads an arbitrary number of bytes, to be used to read
+// raw bytes, this is useful when lifting strings
+private func readBytes(_ reader: inout (data: Data, offset: Data.Index), count: Int) throws -> [UInt8] {
+    let range = reader.offset ..< (reader.offset + count)
+    guard reader.data.count >= range.upperBound else {
+        throw UniffiInternalError.bufferOverflow
     }
+    var value = [UInt8](repeating: 0, count: count)
+    value.withUnsafeMutableBufferPointer { buffer in
+        reader.data.copyBytes(to: buffer, from: range)
+    }
+    reader.offset = range.upperBound
+    return value
+}
 
-    @inlinable
-    func writeFloat(_ value: Float) {
-        writeInt(value.bitPattern)
-    }
+// Reads a float at the current offset.
+private func readFloat(_ reader: inout (data: Data, offset: Data.Index)) throws -> Float {
+    return try Float(bitPattern: readInt(&reader))
+}
 
-    @inlinable
-    func writeDouble(_ value: Double) {
-        writeInt(value.bitPattern)
-    }
+// Reads a float at the current offset.
+private func readDouble(_ reader: inout (data: Data, offset: Data.Index)) throws -> Double {
+    return try Double(bitPattern: readInt(&reader))
+}
+
+// Indicates if the offset has reached the end of the buffer.
+private func hasRemaining(_ reader: (data: Data, offset: Data.Index)) -> Bool {
+    return reader.offset < reader.data.count
+}
+
+// Define writer functionality.  Normally this would be defined in a class or
+// struct, but we use standalone functions instead in order to make external
+// types work.  See the above discussion on Readers for details.
+
+private func createWriter() -> [UInt8] {
+    return []
+}
+
+private func writeBytes<S>(_ writer: inout [UInt8], _ byteArr: S) where S: Sequence, S.Element == UInt8 {
+    writer.append(contentsOf: byteArr)
+}
+
+// Writes an integer in big-endian order.
+//
+// Warning: make sure what you are trying to write
+// is in the correct type!
+private func writeInt<T: FixedWidthInteger>(_ writer: inout [UInt8], _ value: T) {
+    var value = value.bigEndian
+    withUnsafeBytes(of: &value) { writer.append(contentsOf: $0) }
+}
+
+private func writeFloat(_ writer: inout [UInt8], _ value: Float) {
+    writeInt(&writer, value.bitPattern)
+}
+
+private func writeDouble(_ writer: inout [UInt8], _ value: Double) {
+    writeInt(&writer, value.bitPattern)
 }
 
 // Protocol for types that transfer other types across the FFI. This is
@@ -155,19 +154,19 @@ private protocol FfiConverter {
 
     static func lift(_ value: FfiType) throws -> SwiftType
     static func lower(_ value: SwiftType) -> FfiType
-    static func read(from buf: Reader) throws -> SwiftType
-    static func write(_ value: SwiftType, into buf: Writer)
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType
+    static func write(_ value: SwiftType, into buf: inout [UInt8])
 }
 
 // Types conforming to `Primitive` pass themselves directly over the FFI.
 private protocol FfiConverterPrimitive: FfiConverter where FfiType == SwiftType {}
 
 extension FfiConverterPrimitive {
-    static func lift(_ value: FfiType) throws -> SwiftType {
+    public static func lift(_ value: FfiType) throws -> SwiftType {
         return value
     }
 
-    static func lower(_ value: SwiftType) -> FfiType {
+    public static func lower(_ value: SwiftType) -> FfiType {
         return value
     }
 }
@@ -177,20 +176,20 @@ extension FfiConverterPrimitive {
 private protocol FfiConverterRustBuffer: FfiConverter where FfiType == RustBuffer {}
 
 extension FfiConverterRustBuffer {
-    static func lift(_ buf: RustBuffer) throws -> SwiftType {
-        let reader = Reader(data: Data(rustBuffer: buf))
-        let value = try read(from: reader)
-        if reader.hasRemaining() {
+    public static func lift(_ buf: RustBuffer) throws -> SwiftType {
+        var reader = createReader(data: Data(rustBuffer: buf))
+        let value = try read(from: &reader)
+        if hasRemaining(reader) {
             throw UniffiInternalError.incompleteData
         }
         buf.deallocate()
         return value
     }
 
-    static func lower(_ value: SwiftType) -> RustBuffer {
-        let writer = Writer()
-        write(value, into: writer)
-        return RustBuffer(bytes: writer.bytes)
+    public static func lower(_ value: SwiftType) -> RustBuffer {
+        var writer = createWriter()
+        write(value, into: &writer)
+        return RustBuffer(bytes: writer)
     }
 }
 
@@ -240,28 +239,42 @@ private extension RustCallStatus {
 }
 
 private func rustCall<T>(_ callback: (UnsafeMutablePointer<RustCallStatus>) -> T) throws -> T {
-    try makeRustCall(callback, errorHandler: {
-        $0.deallocate()
-        return UniffiInternalError.unexpectedRustCallError
-    })
+    try makeRustCall(callback, errorHandler: nil)
 }
 
-private func rustCallWithError<T, F: FfiConverter>
-(_ errorFfiConverter: F.Type, _ callback: (UnsafeMutablePointer<RustCallStatus>) -> T) throws -> T
-    where F.SwiftType: Error, F.FfiType == RustBuffer
-{
-    try makeRustCall(callback, errorHandler: { try errorFfiConverter.lift($0) })
+private func rustCallWithError<T>(
+    _ errorHandler: @escaping (RustBuffer) throws -> Error,
+    _ callback: (UnsafeMutablePointer<RustCallStatus>) -> T
+) throws -> T {
+    try makeRustCall(callback, errorHandler: errorHandler)
 }
 
-private func makeRustCall<T>(_ callback: (UnsafeMutablePointer<RustCallStatus>) -> T, errorHandler: (RustBuffer) throws -> Error) throws -> T {
+private func makeRustCall<T>(
+    _ callback: (UnsafeMutablePointer<RustCallStatus>) -> T,
+    errorHandler: ((RustBuffer) throws -> Error)?
+) throws -> T {
+    uniffiEnsureInitialized()
     var callStatus = RustCallStatus()
     let returnedVal = callback(&callStatus)
+    try uniffiCheckCallStatus(callStatus: callStatus, errorHandler: errorHandler)
+    return returnedVal
+}
+
+private func uniffiCheckCallStatus(
+    callStatus: RustCallStatus,
+    errorHandler: ((RustBuffer) throws -> Error)?
+) throws {
     switch callStatus.code {
     case CALL_SUCCESS:
-        return returnedVal
+        return
 
     case CALL_ERROR:
-        throw try errorHandler(callStatus.errorBuf)
+        if let errorHandler = errorHandler {
+            throw try errorHandler(callStatus.errorBuf)
+        } else {
+            callStatus.errorBuf.deallocate()
+            throw UniffiInternalError.unexpectedRustCallError
+        }
 
     case CALL_PANIC:
         // When the rust code sees a panic, it tries to construct a RustBuffer
@@ -285,12 +298,12 @@ private struct FfiConverterUInt16: FfiConverterPrimitive {
     typealias FfiType = UInt16
     typealias SwiftType = UInt16
 
-    static func read(from buf: Reader) throws -> UInt16 {
-        return try lift(buf.readInt())
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UInt16 {
+        return try lift(readInt(&buf))
     }
 
-    static func write(_ value: SwiftType, into buf: Writer) {
-        buf.writeInt(lower(value))
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
     }
 }
 
@@ -298,12 +311,12 @@ private struct FfiConverterUInt32: FfiConverterPrimitive {
     typealias FfiType = UInt32
     typealias SwiftType = UInt32
 
-    static func read(from buf: Reader) throws -> UInt32 {
-        return try lift(buf.readInt())
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UInt32 {
+        return try lift(readInt(&buf))
     }
 
-    static func write(_ value: SwiftType, into buf: Writer) {
-        buf.writeInt(lower(value))
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
     }
 }
 
@@ -311,7 +324,7 @@ private struct FfiConverterString: FfiConverter {
     typealias SwiftType = String
     typealias FfiType = RustBuffer
 
-    static func lift(_ value: RustBuffer) throws -> String {
+    public static func lift(_ value: RustBuffer) throws -> String {
         defer {
             value.deallocate()
         }
@@ -322,7 +335,7 @@ private struct FfiConverterString: FfiConverter {
         return String(bytes: bytes, encoding: String.Encoding.utf8)!
     }
 
-    static func lower(_ value: String) -> RustBuffer {
+    public static func lower(_ value: String) -> RustBuffer {
         return value.utf8CString.withUnsafeBufferPointer { ptr in
             // The swift string gives us int8_t, we want uint8_t.
             ptr.withMemoryRebound(to: UInt8.self) { ptr in
@@ -333,15 +346,15 @@ private struct FfiConverterString: FfiConverter {
         }
     }
 
-    static func read(from buf: Reader) throws -> String {
-        let len: Int32 = try buf.readInt()
-        return try String(bytes: buf.readBytes(count: Int(len)), encoding: String.Encoding.utf8)!
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> String {
+        let len: Int32 = try readInt(&buf)
+        return try String(bytes: readBytes(&buf, count: Int(len)), encoding: String.Encoding.utf8)!
     }
 
-    static func write(_ value: String, into buf: Writer) {
+    public static func write(_ value: String, into buf: inout [UInt8]) {
         let len = Int32(value.utf8.count)
-        buf.writeInt(len)
-        buf.writeBytes(value.utf8)
+        writeInt(&buf, len)
+        writeBytes(&buf, value.utf8)
     }
 }
 
@@ -351,6 +364,7 @@ public protocol ComposerModelProtocol {
     func getContentAsHtml() -> String
     func getContentAsMessageHtml() -> String
     func getContentAsMarkdown() -> String
+    func getContentAsMessageMarkdown() -> String
     func getContentAsPlainText() -> String
     func clear() throws -> ComposerUpdate
     func select(startUtf16Codeunit: UInt32, endUtf16Codeunit: UInt32) throws -> ComposerUpdate
@@ -400,23 +414,23 @@ public class ComposerModel: ComposerModelProtocol {
     }
 
     deinit {
-        try! rustCall { ffi_wysiwyg_composer_a9c1_ComposerModel_object_free(pointer, $0) }
+        try! rustCall { uniffi_wysiwyg_composer_fn_free_composermodel(pointer, $0) }
     }
 
     public func setContentFromHtml(html: String) throws -> ComposerUpdate {
         return try FfiConverterTypeComposerUpdate.lift(
-            rustCallWithError(FfiConverterTypeDomCreationError.self) {
-                wysiwyg_composer_a9c1_ComposerModel_set_content_from_html(self.pointer,
-                                                                          FfiConverterString.lower(html), $0)
+            rustCallWithError(FfiConverterTypeDomCreationError.lift) {
+                uniffi_wysiwyg_composer_fn_method_composermodel_set_content_from_html(self.pointer,
+                                                                                      FfiConverterString.lower(html), $0)
             }
         )
     }
 
     public func setContentFromMarkdown(markdown: String) throws -> ComposerUpdate {
         return try FfiConverterTypeComposerUpdate.lift(
-            rustCallWithError(FfiConverterTypeDomCreationError.self) {
-                wysiwyg_composer_a9c1_ComposerModel_set_content_from_markdown(self.pointer,
-                                                                              FfiConverterString.lower(markdown), $0)
+            rustCallWithError(FfiConverterTypeDomCreationError.lift) {
+                uniffi_wysiwyg_composer_fn_method_composermodel_set_content_from_markdown(self.pointer,
+                                                                                          FfiConverterString.lower(markdown), $0)
             }
         )
     }
@@ -425,7 +439,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterString.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_get_content_as_html(self.pointer, $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_get_content_as_html(self.pointer, $0)
                 }
         )
     }
@@ -434,7 +448,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterString.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_get_content_as_message_html(self.pointer, $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_get_content_as_message_html(self.pointer, $0)
                 }
         )
     }
@@ -443,7 +457,16 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterString.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_get_content_as_markdown(self.pointer, $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_get_content_as_markdown(self.pointer, $0)
+                }
+        )
+    }
+
+    public func getContentAsMessageMarkdown() -> String {
+        return try! FfiConverterString.lift(
+            try!
+                rustCall {
+                    uniffi_wysiwyg_composer_fn_method_composermodel_get_content_as_message_markdown(self.pointer, $0)
                 }
         )
     }
@@ -452,7 +475,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterString.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_get_content_as_plain_text(self.pointer, $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_get_content_as_plain_text(self.pointer, $0)
                 }
         )
     }
@@ -461,7 +484,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_clear(self.pointer, $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_clear(self.pointer, $0)
                 }
         )
     }
@@ -470,9 +493,9 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_select(self.pointer,
-                                                               FfiConverterUInt32.lower(startUtf16Codeunit),
-                                                               FfiConverterUInt32.lower(endUtf16Codeunit), $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_select(self.pointer,
+                                                                           FfiConverterUInt32.lower(startUtf16Codeunit),
+                                                                           FfiConverterUInt32.lower(endUtf16Codeunit), $0)
                 }
         )
     }
@@ -481,8 +504,8 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_replace_text(self.pointer,
-                                                                     FfiConverterString.lower(newText), $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_replace_text(self.pointer,
+                                                                                 FfiConverterString.lower(newText), $0)
                 }
         )
     }
@@ -491,10 +514,10 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_replace_text_in(self.pointer,
-                                                                        FfiConverterString.lower(newText),
-                                                                        FfiConverterUInt32.lower(start),
-                                                                        FfiConverterUInt32.lower(end), $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_replace_text_in(self.pointer,
+                                                                                    FfiConverterString.lower(newText),
+                                                                                    FfiConverterUInt32.lower(start),
+                                                                                    FfiConverterUInt32.lower(end), $0)
                 }
         )
     }
@@ -503,9 +526,9 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_replace_text_suggestion(self.pointer,
-                                                                                FfiConverterString.lower(newText),
-                                                                                FfiConverterTypeSuggestionPattern.lower(suggestion), $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_replace_text_suggestion(self.pointer,
+                                                                                            FfiConverterString.lower(newText),
+                                                                                            FfiConverterTypeSuggestionPattern.lower(suggestion), $0)
                 }
         )
     }
@@ -514,7 +537,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_backspace(self.pointer, $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_backspace(self.pointer, $0)
                 }
         )
     }
@@ -523,7 +546,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_delete(self.pointer, $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_delete(self.pointer, $0)
                 }
         )
     }
@@ -532,9 +555,9 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_delete_in(self.pointer,
-                                                                  FfiConverterUInt32.lower(start),
-                                                                  FfiConverterUInt32.lower(end), $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_delete_in(self.pointer,
+                                                                              FfiConverterUInt32.lower(start),
+                                                                              FfiConverterUInt32.lower(end), $0)
                 }
         )
     }
@@ -543,7 +566,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_enter(self.pointer, $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_enter(self.pointer, $0)
                 }
         )
     }
@@ -552,7 +575,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_bold(self.pointer, $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_bold(self.pointer, $0)
                 }
         )
     }
@@ -561,7 +584,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_italic(self.pointer, $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_italic(self.pointer, $0)
                 }
         )
     }
@@ -570,7 +593,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_strike_through(self.pointer, $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_strike_through(self.pointer, $0)
                 }
         )
     }
@@ -579,7 +602,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_underline(self.pointer, $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_underline(self.pointer, $0)
                 }
         )
     }
@@ -588,7 +611,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_inline_code(self.pointer, $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_inline_code(self.pointer, $0)
                 }
         )
     }
@@ -597,7 +620,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_ordered_list(self.pointer, $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_ordered_list(self.pointer, $0)
                 }
         )
     }
@@ -606,7 +629,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_unordered_list(self.pointer, $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_unordered_list(self.pointer, $0)
                 }
         )
     }
@@ -615,7 +638,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_undo(self.pointer, $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_undo(self.pointer, $0)
                 }
         )
     }
@@ -624,7 +647,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_redo(self.pointer, $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_redo(self.pointer, $0)
                 }
         )
     }
@@ -633,7 +656,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_indent(self.pointer, $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_indent(self.pointer, $0)
                 }
         )
     }
@@ -642,7 +665,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_unindent(self.pointer, $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_unindent(self.pointer, $0)
                 }
         )
     }
@@ -651,9 +674,9 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_set_link(self.pointer,
-                                                                 FfiConverterString.lower(url),
-                                                                 FfiConverterSequenceTypeAttribute.lower(attributes), $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_set_link(self.pointer,
+                                                                             FfiConverterString.lower(url),
+                                                                             FfiConverterSequenceTypeAttribute.lower(attributes), $0)
                 }
         )
     }
@@ -662,10 +685,10 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_set_link_with_text(self.pointer,
-                                                                           FfiConverterString.lower(url),
-                                                                           FfiConverterString.lower(text),
-                                                                           FfiConverterSequenceTypeAttribute.lower(attributes), $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_set_link_with_text(self.pointer,
+                                                                                       FfiConverterString.lower(url),
+                                                                                       FfiConverterString.lower(text),
+                                                                                       FfiConverterSequenceTypeAttribute.lower(attributes), $0)
                 }
         )
     }
@@ -674,7 +697,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_remove_links(self.pointer, $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_remove_links(self.pointer, $0)
                 }
         )
     }
@@ -683,7 +706,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_insert_at_room_mention(self.pointer, $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_insert_at_room_mention(self.pointer, $0)
                 }
         )
     }
@@ -692,10 +715,10 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_insert_mention(self.pointer,
-                                                                       FfiConverterString.lower(url),
-                                                                       FfiConverterString.lower(text),
-                                                                       FfiConverterSequenceTypeAttribute.lower(attributes), $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_insert_mention(self.pointer,
+                                                                                   FfiConverterString.lower(url),
+                                                                                   FfiConverterString.lower(text),
+                                                                                   FfiConverterSequenceTypeAttribute.lower(attributes), $0)
                 }
         )
     }
@@ -704,8 +727,8 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_insert_at_room_mention_at_suggestion(self.pointer,
-                                                                                             FfiConverterTypeSuggestionPattern.lower(suggestion), $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_insert_at_room_mention_at_suggestion(self.pointer,
+                                                                                                         FfiConverterTypeSuggestionPattern.lower(suggestion), $0)
                 }
         )
     }
@@ -714,11 +737,11 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_insert_mention_at_suggestion(self.pointer,
-                                                                                     FfiConverterString.lower(url),
-                                                                                     FfiConverterString.lower(text),
-                                                                                     FfiConverterTypeSuggestionPattern.lower(suggestion),
-                                                                                     FfiConverterSequenceTypeAttribute.lower(attributes), $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_insert_mention_at_suggestion(self.pointer,
+                                                                                                 FfiConverterString.lower(url),
+                                                                                                 FfiConverterString.lower(text),
+                                                                                                 FfiConverterTypeSuggestionPattern.lower(suggestion),
+                                                                                                 FfiConverterSequenceTypeAttribute.lower(attributes), $0)
                 }
         )
     }
@@ -727,7 +750,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_code_block(self.pointer, $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_code_block(self.pointer, $0)
                 }
         )
     }
@@ -736,7 +759,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_quote(self.pointer, $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_quote(self.pointer, $0)
                 }
         )
     }
@@ -744,7 +767,7 @@ public class ComposerModel: ComposerModelProtocol {
     public func debugPanic() {
         try!
             rustCall {
-                wysiwyg_composer_a9c1_ComposerModel_debug_panic(self.pointer, $0)
+                uniffi_wysiwyg_composer_fn_method_composermodel_debug_panic(self.pointer, $0)
             }
     }
 
@@ -752,7 +775,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterString.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_to_tree(self.pointer, $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_to_tree(self.pointer, $0)
                 }
         )
     }
@@ -761,7 +784,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterString.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_to_example_format(self.pointer, $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_to_example_format(self.pointer, $0)
                 }
         )
     }
@@ -770,7 +793,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterTypeComposerState.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_get_current_dom_state(self.pointer, $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_get_current_dom_state(self.pointer, $0)
                 }
         )
     }
@@ -779,7 +802,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterDictionaryTypeComposerActionTypeActionState.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_action_states(self.pointer, $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_action_states(self.pointer, $0)
                 }
         )
     }
@@ -788,18 +811,18 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterTypeLinkAction.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerModel_get_link_action(self.pointer, $0)
+                    uniffi_wysiwyg_composer_fn_method_composermodel_get_link_action(self.pointer, $0)
                 }
         )
     }
 }
 
-private struct FfiConverterTypeComposerModel: FfiConverter {
+public struct FfiConverterTypeComposerModel: FfiConverter {
     typealias FfiType = UnsafeMutableRawPointer
     typealias SwiftType = ComposerModel
 
-    static func read(from buf: Reader) throws -> ComposerModel {
-        let v: UInt64 = try buf.readInt()
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ComposerModel {
+        let v: UInt64 = try readInt(&buf)
         // The Rust code won't compile if a pointer won't fit in a UInt64.
         // We have to go via `UInt` because that's the thing that's the size of a pointer.
         let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
@@ -809,19 +832,27 @@ private struct FfiConverterTypeComposerModel: FfiConverter {
         return try lift(ptr!)
     }
 
-    static func write(_ value: ComposerModel, into buf: Writer) {
+    public static func write(_ value: ComposerModel, into buf: inout [UInt8]) {
         // This fiddling is because `Int` is the thing that's the same size as a pointer.
         // The Rust code won't compile if a pointer won't fit in a `UInt64`.
-        buf.writeInt(UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
     }
 
-    static func lift(_ pointer: UnsafeMutableRawPointer) throws -> ComposerModel {
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> ComposerModel {
         return ComposerModel(unsafeFromRawPointer: pointer)
     }
 
-    static func lower(_ value: ComposerModel) -> UnsafeMutableRawPointer {
+    public static func lower(_ value: ComposerModel) -> UnsafeMutableRawPointer {
         return value.pointer
     }
+}
+
+public func FfiConverterTypeComposerModel_lift(_ pointer: UnsafeMutableRawPointer) throws -> ComposerModel {
+    return try FfiConverterTypeComposerModel.lift(pointer)
+}
+
+public func FfiConverterTypeComposerModel_lower(_ value: ComposerModel) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeComposerModel.lower(value)
 }
 
 public protocol ComposerUpdateProtocol {
@@ -841,14 +872,14 @@ public class ComposerUpdate: ComposerUpdateProtocol {
     }
 
     deinit {
-        try! rustCall { ffi_wysiwyg_composer_a9c1_ComposerUpdate_object_free(pointer, $0) }
+        try! rustCall { uniffi_wysiwyg_composer_fn_free_composerupdate(pointer, $0) }
     }
 
     public func textUpdate() -> TextUpdate {
         return try! FfiConverterTypeTextUpdate.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerUpdate_text_update(self.pointer, $0)
+                    uniffi_wysiwyg_composer_fn_method_composerupdate_text_update(self.pointer, $0)
                 }
         )
     }
@@ -857,7 +888,7 @@ public class ComposerUpdate: ComposerUpdateProtocol {
         return try! FfiConverterTypeMenuState.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerUpdate_menu_state(self.pointer, $0)
+                    uniffi_wysiwyg_composer_fn_method_composerupdate_menu_state(self.pointer, $0)
                 }
         )
     }
@@ -866,18 +897,18 @@ public class ComposerUpdate: ComposerUpdateProtocol {
         return try! FfiConverterTypeMenuAction.lift(
             try!
                 rustCall {
-                    wysiwyg_composer_a9c1_ComposerUpdate_menu_action(self.pointer, $0)
+                    uniffi_wysiwyg_composer_fn_method_composerupdate_menu_action(self.pointer, $0)
                 }
         )
     }
 }
 
-private struct FfiConverterTypeComposerUpdate: FfiConverter {
+public struct FfiConverterTypeComposerUpdate: FfiConverter {
     typealias FfiType = UnsafeMutableRawPointer
     typealias SwiftType = ComposerUpdate
 
-    static func read(from buf: Reader) throws -> ComposerUpdate {
-        let v: UInt64 = try buf.readInt()
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ComposerUpdate {
+        let v: UInt64 = try readInt(&buf)
         // The Rust code won't compile if a pointer won't fit in a UInt64.
         // We have to go via `UInt` because that's the thing that's the size of a pointer.
         let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
@@ -887,19 +918,27 @@ private struct FfiConverterTypeComposerUpdate: FfiConverter {
         return try lift(ptr!)
     }
 
-    static func write(_ value: ComposerUpdate, into buf: Writer) {
+    public static func write(_ value: ComposerUpdate, into buf: inout [UInt8]) {
         // This fiddling is because `Int` is the thing that's the same size as a pointer.
         // The Rust code won't compile if a pointer won't fit in a `UInt64`.
-        buf.writeInt(UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
     }
 
-    static func lift(_ pointer: UnsafeMutableRawPointer) throws -> ComposerUpdate {
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> ComposerUpdate {
         return ComposerUpdate(unsafeFromRawPointer: pointer)
     }
 
-    static func lower(_ value: ComposerUpdate) -> UnsafeMutableRawPointer {
+    public static func lower(_ value: ComposerUpdate) -> UnsafeMutableRawPointer {
         return value.pointer
     }
+}
+
+public func FfiConverterTypeComposerUpdate_lift(_ pointer: UnsafeMutableRawPointer) throws -> ComposerUpdate {
+    return try FfiConverterTypeComposerUpdate.lift(pointer)
+}
+
+public func FfiConverterTypeComposerUpdate_lower(_ value: ComposerUpdate) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeComposerUpdate.lower(value)
 }
 
 public struct Attribute {
@@ -931,18 +970,26 @@ extension Attribute: Equatable, Hashable {
     }
 }
 
-private struct FfiConverterTypeAttribute: FfiConverterRustBuffer {
-    fileprivate static func read(from buf: Reader) throws -> Attribute {
+public struct FfiConverterTypeAttribute: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Attribute {
         return try Attribute(
-            key: FfiConverterString.read(from: buf),
-            value: FfiConverterString.read(from: buf)
+            key: FfiConverterString.read(from: &buf),
+            value: FfiConverterString.read(from: &buf)
         )
     }
 
-    fileprivate static func write(_ value: Attribute, into buf: Writer) {
-        FfiConverterString.write(value.key, into: buf)
-        FfiConverterString.write(value.value, into: buf)
+    public static func write(_ value: Attribute, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.key, into: &buf)
+        FfiConverterString.write(value.value, into: &buf)
     }
+}
+
+public func FfiConverterTypeAttribute_lift(_ buf: RustBuffer) throws -> Attribute {
+    return try FfiConverterTypeAttribute.lift(buf)
+}
+
+public func FfiConverterTypeAttribute_lower(_ value: Attribute) -> RustBuffer {
+    return FfiConverterTypeAttribute.lower(value)
 }
 
 public struct ComposerState {
@@ -980,20 +1027,28 @@ extension ComposerState: Equatable, Hashable {
     }
 }
 
-private struct FfiConverterTypeComposerState: FfiConverterRustBuffer {
-    fileprivate static func read(from buf: Reader) throws -> ComposerState {
+public struct FfiConverterTypeComposerState: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ComposerState {
         return try ComposerState(
-            html: FfiConverterSequenceUInt16.read(from: buf),
-            start: FfiConverterUInt32.read(from: buf),
-            end: FfiConverterUInt32.read(from: buf)
+            html: FfiConverterSequenceUInt16.read(from: &buf),
+            start: FfiConverterUInt32.read(from: &buf),
+            end: FfiConverterUInt32.read(from: &buf)
         )
     }
 
-    fileprivate static func write(_ value: ComposerState, into buf: Writer) {
-        FfiConverterSequenceUInt16.write(value.html, into: buf)
-        FfiConverterUInt32.write(value.start, into: buf)
-        FfiConverterUInt32.write(value.end, into: buf)
+    public static func write(_ value: ComposerState, into buf: inout [UInt8]) {
+        FfiConverterSequenceUInt16.write(value.html, into: &buf)
+        FfiConverterUInt32.write(value.start, into: &buf)
+        FfiConverterUInt32.write(value.end, into: &buf)
     }
+}
+
+public func FfiConverterTypeComposerState_lift(_ buf: RustBuffer) throws -> ComposerState {
+    return try FfiConverterTypeComposerState.lift(buf)
+}
+
+public func FfiConverterTypeComposerState_lower(_ value: ComposerState) -> RustBuffer {
+    return FfiConverterTypeComposerState.lower(value)
 }
 
 public struct SuggestionPattern {
@@ -1037,22 +1092,30 @@ extension SuggestionPattern: Equatable, Hashable {
     }
 }
 
-private struct FfiConverterTypeSuggestionPattern: FfiConverterRustBuffer {
-    fileprivate static func read(from buf: Reader) throws -> SuggestionPattern {
+public struct FfiConverterTypeSuggestionPattern: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SuggestionPattern {
         return try SuggestionPattern(
-            key: FfiConverterTypePatternKey.read(from: buf),
-            text: FfiConverterString.read(from: buf),
-            start: FfiConverterUInt32.read(from: buf),
-            end: FfiConverterUInt32.read(from: buf)
+            key: FfiConverterTypePatternKey.read(from: &buf),
+            text: FfiConverterString.read(from: &buf),
+            start: FfiConverterUInt32.read(from: &buf),
+            end: FfiConverterUInt32.read(from: &buf)
         )
     }
 
-    fileprivate static func write(_ value: SuggestionPattern, into buf: Writer) {
-        FfiConverterTypePatternKey.write(value.key, into: buf)
-        FfiConverterString.write(value.text, into: buf)
-        FfiConverterUInt32.write(value.start, into: buf)
-        FfiConverterUInt32.write(value.end, into: buf)
+    public static func write(_ value: SuggestionPattern, into buf: inout [UInt8]) {
+        FfiConverterTypePatternKey.write(value.key, into: &buf)
+        FfiConverterString.write(value.text, into: &buf)
+        FfiConverterUInt32.write(value.start, into: &buf)
+        FfiConverterUInt32.write(value.end, into: &buf)
     }
+}
+
+public func FfiConverterTypeSuggestionPattern_lift(_ buf: RustBuffer) throws -> SuggestionPattern {
+    return try FfiConverterTypeSuggestionPattern.lift(buf)
+}
+
+public func FfiConverterTypeSuggestionPattern_lower(_ value: SuggestionPattern) -> RustBuffer {
+    return FfiConverterTypeSuggestionPattern.lower(value)
 }
 
 // Note that we don't yet support `indirect` for enums.
@@ -1063,11 +1126,11 @@ public enum ActionState {
     case disabled
 }
 
-private struct FfiConverterTypeActionState: FfiConverterRustBuffer {
+public struct FfiConverterTypeActionState: FfiConverterRustBuffer {
     typealias SwiftType = ActionState
 
-    static func read(from buf: Reader) throws -> ActionState {
-        let variant: Int32 = try buf.readInt()
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ActionState {
+        let variant: Int32 = try readInt(&buf)
         switch variant {
         case 1: return .enabled
 
@@ -1079,18 +1142,26 @@ private struct FfiConverterTypeActionState: FfiConverterRustBuffer {
         }
     }
 
-    static func write(_ value: ActionState, into buf: Writer) {
+    public static func write(_ value: ActionState, into buf: inout [UInt8]) {
         switch value {
         case .enabled:
-            buf.writeInt(Int32(1))
+            writeInt(&buf, Int32(1))
 
         case .reversed:
-            buf.writeInt(Int32(2))
+            writeInt(&buf, Int32(2))
 
         case .disabled:
-            buf.writeInt(Int32(3))
+            writeInt(&buf, Int32(3))
         }
     }
+}
+
+public func FfiConverterTypeActionState_lift(_ buf: RustBuffer) throws -> ActionState {
+    return try FfiConverterTypeActionState.lift(buf)
+}
+
+public func FfiConverterTypeActionState_lower(_ value: ActionState) -> RustBuffer {
+    return FfiConverterTypeActionState.lower(value)
 }
 
 extension ActionState: Equatable, Hashable {}
@@ -1114,11 +1185,11 @@ public enum ComposerAction {
     case quote
 }
 
-private struct FfiConverterTypeComposerAction: FfiConverterRustBuffer {
+public struct FfiConverterTypeComposerAction: FfiConverterRustBuffer {
     typealias SwiftType = ComposerAction
 
-    static func read(from buf: Reader) throws -> ComposerAction {
-        let variant: Int32 = try buf.readInt()
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ComposerAction {
+        let variant: Int32 = try readInt(&buf)
         switch variant {
         case 1: return .bold
 
@@ -1152,54 +1223,106 @@ private struct FfiConverterTypeComposerAction: FfiConverterRustBuffer {
         }
     }
 
-    static func write(_ value: ComposerAction, into buf: Writer) {
+    public static func write(_ value: ComposerAction, into buf: inout [UInt8]) {
         switch value {
         case .bold:
-            buf.writeInt(Int32(1))
+            writeInt(&buf, Int32(1))
 
         case .italic:
-            buf.writeInt(Int32(2))
+            writeInt(&buf, Int32(2))
 
         case .strikeThrough:
-            buf.writeInt(Int32(3))
+            writeInt(&buf, Int32(3))
 
         case .underline:
-            buf.writeInt(Int32(4))
+            writeInt(&buf, Int32(4))
 
         case .inlineCode:
-            buf.writeInt(Int32(5))
+            writeInt(&buf, Int32(5))
 
         case .link:
-            buf.writeInt(Int32(6))
+            writeInt(&buf, Int32(6))
 
         case .undo:
-            buf.writeInt(Int32(7))
+            writeInt(&buf, Int32(7))
 
         case .redo:
-            buf.writeInt(Int32(8))
+            writeInt(&buf, Int32(8))
 
         case .orderedList:
-            buf.writeInt(Int32(9))
+            writeInt(&buf, Int32(9))
 
         case .unorderedList:
-            buf.writeInt(Int32(10))
+            writeInt(&buf, Int32(10))
 
         case .indent:
-            buf.writeInt(Int32(11))
+            writeInt(&buf, Int32(11))
 
         case .unindent:
-            buf.writeInt(Int32(12))
+            writeInt(&buf, Int32(12))
 
         case .codeBlock:
-            buf.writeInt(Int32(13))
+            writeInt(&buf, Int32(13))
 
         case .quote:
-            buf.writeInt(Int32(14))
+            writeInt(&buf, Int32(14))
         }
     }
 }
 
+public func FfiConverterTypeComposerAction_lift(_ buf: RustBuffer) throws -> ComposerAction {
+    return try FfiConverterTypeComposerAction.lift(buf)
+}
+
+public func FfiConverterTypeComposerAction_lower(_ value: ComposerAction) -> RustBuffer {
+    return FfiConverterTypeComposerAction.lower(value)
+}
+
 extension ComposerAction: Equatable, Hashable {}
+
+public enum DomCreationError {
+    // Simple error enums only carry a message
+    case MarkdownParseError(message: String)
+
+    // Simple error enums only carry a message
+    case HtmlParseError(message: String)
+
+    fileprivate static func uniffiErrorHandler(_ error: RustBuffer) throws -> Error {
+        return try FfiConverterTypeDomCreationError.lift(error)
+    }
+}
+
+public struct FfiConverterTypeDomCreationError: FfiConverterRustBuffer {
+    typealias SwiftType = DomCreationError
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> DomCreationError {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return try .MarkdownParseError(
+                message: FfiConverterString.read(from: &buf)
+            )
+
+        case 2: return try .HtmlParseError(
+                message: FfiConverterString.read(from: &buf)
+            )
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: DomCreationError, into buf: inout [UInt8]) {
+        switch value {
+        case let .MarkdownParseError(message):
+            writeInt(&buf, Int32(1))
+        case let .HtmlParseError(message):
+            writeInt(&buf, Int32(2))
+        }
+    }
+}
+
+extension DomCreationError: Equatable, Hashable {}
+
+extension DomCreationError: Error {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
@@ -1210,18 +1333,18 @@ public enum LinkAction {
     case disabled
 }
 
-private struct FfiConverterTypeLinkAction: FfiConverterRustBuffer {
+public struct FfiConverterTypeLinkAction: FfiConverterRustBuffer {
     typealias SwiftType = LinkAction
 
-    static func read(from buf: Reader) throws -> LinkAction {
-        let variant: Int32 = try buf.readInt()
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> LinkAction {
+        let variant: Int32 = try readInt(&buf)
         switch variant {
         case 1: return .createWithText
 
         case 2: return .create
 
         case 3: return try .edit(
-                url: FfiConverterString.read(from: buf)
+                url: FfiConverterString.read(from: &buf)
             )
 
         case 4: return .disabled
@@ -1230,22 +1353,30 @@ private struct FfiConverterTypeLinkAction: FfiConverterRustBuffer {
         }
     }
 
-    static func write(_ value: LinkAction, into buf: Writer) {
+    public static func write(_ value: LinkAction, into buf: inout [UInt8]) {
         switch value {
         case .createWithText:
-            buf.writeInt(Int32(1))
+            writeInt(&buf, Int32(1))
 
         case .create:
-            buf.writeInt(Int32(2))
+            writeInt(&buf, Int32(2))
 
         case let .edit(url):
-            buf.writeInt(Int32(3))
-            FfiConverterString.write(url, into: buf)
+            writeInt(&buf, Int32(3))
+            FfiConverterString.write(url, into: &buf)
 
         case .disabled:
-            buf.writeInt(Int32(4))
+            writeInt(&buf, Int32(4))
         }
     }
+}
+
+public func FfiConverterTypeLinkAction_lift(_ buf: RustBuffer) throws -> LinkAction {
+    return try FfiConverterTypeLinkAction.lift(buf)
+}
+
+public func FfiConverterTypeLinkAction_lower(_ value: LinkAction) -> RustBuffer {
+    return FfiConverterTypeLinkAction.lower(value)
 }
 
 extension LinkAction: Equatable, Hashable {}
@@ -1258,37 +1389,45 @@ public enum MenuAction {
     case suggestion(suggestionPattern: SuggestionPattern)
 }
 
-private struct FfiConverterTypeMenuAction: FfiConverterRustBuffer {
+public struct FfiConverterTypeMenuAction: FfiConverterRustBuffer {
     typealias SwiftType = MenuAction
 
-    static func read(from buf: Reader) throws -> MenuAction {
-        let variant: Int32 = try buf.readInt()
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MenuAction {
+        let variant: Int32 = try readInt(&buf)
         switch variant {
         case 1: return .keep
 
         case 2: return .none
 
         case 3: return try .suggestion(
-                suggestionPattern: FfiConverterTypeSuggestionPattern.read(from: buf)
+                suggestionPattern: FfiConverterTypeSuggestionPattern.read(from: &buf)
             )
 
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
-    static func write(_ value: MenuAction, into buf: Writer) {
+    public static func write(_ value: MenuAction, into buf: inout [UInt8]) {
         switch value {
         case .keep:
-            buf.writeInt(Int32(1))
+            writeInt(&buf, Int32(1))
 
         case .none:
-            buf.writeInt(Int32(2))
+            writeInt(&buf, Int32(2))
 
         case let .suggestion(suggestionPattern):
-            buf.writeInt(Int32(3))
-            FfiConverterTypeSuggestionPattern.write(suggestionPattern, into: buf)
+            writeInt(&buf, Int32(3))
+            FfiConverterTypeSuggestionPattern.write(suggestionPattern, into: &buf)
         }
     }
+}
+
+public func FfiConverterTypeMenuAction_lift(_ buf: RustBuffer) throws -> MenuAction {
+    return try FfiConverterTypeMenuAction.lift(buf)
+}
+
+public func FfiConverterTypeMenuAction_lower(_ value: MenuAction) -> RustBuffer {
+    return FfiConverterTypeMenuAction.lower(value)
 }
 
 extension MenuAction: Equatable, Hashable {}
@@ -1300,32 +1439,40 @@ public enum MenuState {
     case update(actionStates: [ComposerAction: ActionState])
 }
 
-private struct FfiConverterTypeMenuState: FfiConverterRustBuffer {
+public struct FfiConverterTypeMenuState: FfiConverterRustBuffer {
     typealias SwiftType = MenuState
 
-    static func read(from buf: Reader) throws -> MenuState {
-        let variant: Int32 = try buf.readInt()
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MenuState {
+        let variant: Int32 = try readInt(&buf)
         switch variant {
         case 1: return .keep
 
         case 2: return try .update(
-                actionStates: FfiConverterDictionaryTypeComposerActionTypeActionState.read(from: buf)
+                actionStates: FfiConverterDictionaryTypeComposerActionTypeActionState.read(from: &buf)
             )
 
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
-    static func write(_ value: MenuState, into buf: Writer) {
+    public static func write(_ value: MenuState, into buf: inout [UInt8]) {
         switch value {
         case .keep:
-            buf.writeInt(Int32(1))
+            writeInt(&buf, Int32(1))
 
         case let .update(actionStates):
-            buf.writeInt(Int32(2))
-            FfiConverterDictionaryTypeComposerActionTypeActionState.write(actionStates, into: buf)
+            writeInt(&buf, Int32(2))
+            FfiConverterDictionaryTypeComposerActionTypeActionState.write(actionStates, into: &buf)
         }
     }
+}
+
+public func FfiConverterTypeMenuState_lift(_ buf: RustBuffer) throws -> MenuState {
+    return try FfiConverterTypeMenuState.lift(buf)
+}
+
+public func FfiConverterTypeMenuState_lower(_ value: MenuState) -> RustBuffer {
+    return FfiConverterTypeMenuState.lower(value)
 }
 
 extension MenuState: Equatable, Hashable {}
@@ -1338,11 +1485,11 @@ public enum PatternKey {
     case slash
 }
 
-private struct FfiConverterTypePatternKey: FfiConverterRustBuffer {
+public struct FfiConverterTypePatternKey: FfiConverterRustBuffer {
     typealias SwiftType = PatternKey
 
-    static func read(from buf: Reader) throws -> PatternKey {
-        let variant: Int32 = try buf.readInt()
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PatternKey {
+        let variant: Int32 = try readInt(&buf)
         switch variant {
         case 1: return .at
 
@@ -1354,18 +1501,26 @@ private struct FfiConverterTypePatternKey: FfiConverterRustBuffer {
         }
     }
 
-    static func write(_ value: PatternKey, into buf: Writer) {
+    public static func write(_ value: PatternKey, into buf: inout [UInt8]) {
         switch value {
         case .at:
-            buf.writeInt(Int32(1))
+            writeInt(&buf, Int32(1))
 
         case .hash:
-            buf.writeInt(Int32(2))
+            writeInt(&buf, Int32(2))
 
         case .slash:
-            buf.writeInt(Int32(3))
+            writeInt(&buf, Int32(3))
         }
     }
+}
+
+public func FfiConverterTypePatternKey_lift(_ buf: RustBuffer) throws -> PatternKey {
+    return try FfiConverterTypePatternKey.lift(buf)
+}
+
+public func FfiConverterTypePatternKey_lower(_ value: PatternKey) -> RustBuffer {
+    return FfiConverterTypePatternKey.lower(value)
 }
 
 extension PatternKey: Equatable, Hashable {}
@@ -1378,109 +1533,75 @@ public enum TextUpdate {
     case select(startUtf16Codeunit: UInt32, endUtf16Codeunit: UInt32)
 }
 
-private struct FfiConverterTypeTextUpdate: FfiConverterRustBuffer {
+public struct FfiConverterTypeTextUpdate: FfiConverterRustBuffer {
     typealias SwiftType = TextUpdate
 
-    static func read(from buf: Reader) throws -> TextUpdate {
-        let variant: Int32 = try buf.readInt()
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TextUpdate {
+        let variant: Int32 = try readInt(&buf)
         switch variant {
         case 1: return .keep
 
         case 2: return try .replaceAll(
-                replacementHtml: FfiConverterSequenceUInt16.read(from: buf),
-                startUtf16Codeunit: FfiConverterUInt32.read(from: buf),
-                endUtf16Codeunit: FfiConverterUInt32.read(from: buf)
+                replacementHtml: FfiConverterSequenceUInt16.read(from: &buf),
+                startUtf16Codeunit: FfiConverterUInt32.read(from: &buf),
+                endUtf16Codeunit: FfiConverterUInt32.read(from: &buf)
             )
 
         case 3: return try .select(
-                startUtf16Codeunit: FfiConverterUInt32.read(from: buf),
-                endUtf16Codeunit: FfiConverterUInt32.read(from: buf)
+                startUtf16Codeunit: FfiConverterUInt32.read(from: &buf),
+                endUtf16Codeunit: FfiConverterUInt32.read(from: &buf)
             )
 
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
 
-    static func write(_ value: TextUpdate, into buf: Writer) {
+    public static func write(_ value: TextUpdate, into buf: inout [UInt8]) {
         switch value {
         case .keep:
-            buf.writeInt(Int32(1))
+            writeInt(&buf, Int32(1))
 
         case let .replaceAll(replacementHtml, startUtf16Codeunit, endUtf16Codeunit):
-            buf.writeInt(Int32(2))
-            FfiConverterSequenceUInt16.write(replacementHtml, into: buf)
-            FfiConverterUInt32.write(startUtf16Codeunit, into: buf)
-            FfiConverterUInt32.write(endUtf16Codeunit, into: buf)
+            writeInt(&buf, Int32(2))
+            FfiConverterSequenceUInt16.write(replacementHtml, into: &buf)
+            FfiConverterUInt32.write(startUtf16Codeunit, into: &buf)
+            FfiConverterUInt32.write(endUtf16Codeunit, into: &buf)
 
         case let .select(startUtf16Codeunit, endUtf16Codeunit):
-            buf.writeInt(Int32(3))
-            FfiConverterUInt32.write(startUtf16Codeunit, into: buf)
-            FfiConverterUInt32.write(endUtf16Codeunit, into: buf)
+            writeInt(&buf, Int32(3))
+            FfiConverterUInt32.write(startUtf16Codeunit, into: &buf)
+            FfiConverterUInt32.write(endUtf16Codeunit, into: &buf)
         }
     }
+}
+
+public func FfiConverterTypeTextUpdate_lift(_ buf: RustBuffer) throws -> TextUpdate {
+    return try FfiConverterTypeTextUpdate.lift(buf)
+}
+
+public func FfiConverterTypeTextUpdate_lower(_ value: TextUpdate) -> RustBuffer {
+    return FfiConverterTypeTextUpdate.lower(value)
 }
 
 extension TextUpdate: Equatable, Hashable {}
 
-public enum DomCreationError {
-    // Simple error enums only carry a message
-    case MarkdownParseError(message: String)
-
-    // Simple error enums only carry a message
-    case HtmlParseError(message: String)
-}
-
-private struct FfiConverterTypeDomCreationError: FfiConverterRustBuffer {
-    typealias SwiftType = DomCreationError
-
-    static func read(from buf: Reader) throws -> DomCreationError {
-        let variant: Int32 = try buf.readInt()
-        switch variant {
-        case 1: return try .MarkdownParseError(
-                message: FfiConverterString.read(from: buf)
-            )
-
-        case 2: return try .HtmlParseError(
-                message: FfiConverterString.read(from: buf)
-            )
-
-        default: throw UniffiInternalError.unexpectedEnumCase
-        }
-    }
-
-    static func write(_ value: DomCreationError, into buf: Writer) {
-        switch value {
-        case let .MarkdownParseError(message):
-            buf.writeInt(Int32(1))
-            FfiConverterString.write(message, into: buf)
-        case let .HtmlParseError(message):
-            buf.writeInt(Int32(2))
-            FfiConverterString.write(message, into: buf)
-        }
-    }
-}
-
-extension DomCreationError: Equatable, Hashable {}
-
-extension DomCreationError: Error {}
-
 private struct FfiConverterSequenceUInt16: FfiConverterRustBuffer {
     typealias SwiftType = [UInt16]
 
-    static func write(_ value: [UInt16], into buf: Writer) {
+    public static func write(_ value: [UInt16], into buf: inout [UInt8]) {
         let len = Int32(value.count)
-        buf.writeInt(len)
+        writeInt(&buf, len)
         for item in value {
-            FfiConverterUInt16.write(item, into: buf)
+            FfiConverterUInt16.write(item, into: &buf)
         }
     }
 
-    static func read(from buf: Reader) throws -> [UInt16] {
-        let len: Int32 = try buf.readInt()
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [UInt16] {
+        let len: Int32 = try readInt(&buf)
         var seq = [UInt16]()
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
-            try seq.append(FfiConverterUInt16.read(from: buf))
+            try seq.append(FfiConverterUInt16.read(from: &buf))
         }
         return seq
     }
@@ -1489,42 +1610,42 @@ private struct FfiConverterSequenceUInt16: FfiConverterRustBuffer {
 private struct FfiConverterSequenceTypeAttribute: FfiConverterRustBuffer {
     typealias SwiftType = [Attribute]
 
-    static func write(_ value: [Attribute], into buf: Writer) {
+    public static func write(_ value: [Attribute], into buf: inout [UInt8]) {
         let len = Int32(value.count)
-        buf.writeInt(len)
+        writeInt(&buf, len)
         for item in value {
-            FfiConverterTypeAttribute.write(item, into: buf)
+            FfiConverterTypeAttribute.write(item, into: &buf)
         }
     }
 
-    static func read(from buf: Reader) throws -> [Attribute] {
-        let len: Int32 = try buf.readInt()
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [Attribute] {
+        let len: Int32 = try readInt(&buf)
         var seq = [Attribute]()
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
-            try seq.append(FfiConverterTypeAttribute.read(from: buf))
+            try seq.append(FfiConverterTypeAttribute.read(from: &buf))
         }
         return seq
     }
 }
 
 private struct FfiConverterDictionaryTypeComposerActionTypeActionState: FfiConverterRustBuffer {
-    fileprivate static func write(_ value: [ComposerAction: ActionState], into buf: Writer) {
+    public static func write(_ value: [ComposerAction: ActionState], into buf: inout [UInt8]) {
         let len = Int32(value.count)
-        buf.writeInt(len)
+        writeInt(&buf, len)
         for (key, value) in value {
-            FfiConverterTypeComposerAction.write(key, into: buf)
-            FfiConverterTypeActionState.write(value, into: buf)
+            FfiConverterTypeComposerAction.write(key, into: &buf)
+            FfiConverterTypeActionState.write(value, into: &buf)
         }
     }
 
-    fileprivate static func read(from buf: Reader) throws -> [ComposerAction: ActionState] {
-        let len: Int32 = try buf.readInt()
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [ComposerAction: ActionState] {
+        let len: Int32 = try readInt(&buf)
         var dict = [ComposerAction: ActionState]()
         dict.reserveCapacity(Int(len))
         for _ in 0 ..< len {
-            let key = try FfiConverterTypeComposerAction.read(from: buf)
-            let value = try FfiConverterTypeActionState.read(from: buf)
+            let key = try FfiConverterTypeComposerAction.read(from: &buf)
+            let value = try FfiConverterTypeActionState.read(from: &buf)
             dict[key] = value
         }
         return dict
@@ -1533,22 +1654,177 @@ private struct FfiConverterDictionaryTypeComposerActionTypeActionState: FfiConve
 
 public func newComposerModel() -> ComposerModel {
     return try! FfiConverterTypeComposerModel.lift(
-        try!
-
-            rustCall {
-                wysiwyg_composer_a9c1_new_composer_model($0)
-            }
+        try! rustCall {
+            uniffi_wysiwyg_composer_fn_func_new_composer_model($0)
+        }
     )
 }
 
-/**
- * Top level initializers and tear down methods.
- *
- * This is generated by uniffi.
- */
-public enum WysiwygComposerLifecycle {
-    /**
-     * Initialize the FFI and Rust library. This should be only called once per application.
-     */
-    func initialize() {}
+private enum InitializationResult {
+    case ok
+    case contractVersionMismatch
+    case apiChecksumMismatch
+}
+
+// Use a global variables to perform the versioning checks. Swift ensures that
+// the code inside is only computed once.
+private var initializationResult: InitializationResult {
+    // Get the bindings contract version from our ComponentInterface
+    let bindings_contract_version = 22
+    // Get the scaffolding contract version by calling the into the dylib
+    let scaffolding_contract_version = ffi_wysiwyg_composer_uniffi_contract_version()
+    if bindings_contract_version != scaffolding_contract_version {
+        return InitializationResult.contractVersionMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_func_new_composer_model() != 28975 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_set_content_from_html() != 4582 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_set_content_from_markdown() != 60032 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_get_content_as_html() != 65228 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_get_content_as_message_html() != 57508 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_get_content_as_markdown() != 64106 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_get_content_as_message_markdown() != 64398 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_get_content_as_plain_text() != 9585 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_clear() != 41767 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_select() != 4306 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_replace_text() != 46243 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_replace_text_in() != 46593 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_replace_text_suggestion() != 49837 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_backspace() != 33006 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_delete() != 47839 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_delete_in() != 42370 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_enter() != 47251 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_bold() != 30239 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_italic() != 47387 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_strike_through() != 17603 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_underline() != 55376 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_inline_code() != 31671 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_ordered_list() != 56134 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_unordered_list() != 63652 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_undo() != 20859 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_redo() != 31076 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_indent() != 1728 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_unindent() != 48917 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_set_link() != 53689 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_set_link_with_text() != 55352 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_remove_links() != 30376 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_insert_at_room_mention() != 7422 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_insert_mention() != 34440 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_insert_at_room_mention_at_suggestion() != 921 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_insert_mention_at_suggestion() != 33141 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_code_block() != 58180 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_quote() != 8486 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_debug_panic() != 33079 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_to_tree() != 18818 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_to_example_format() != 62397 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_get_current_dom_state() != 60367 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_action_states() != 22093 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composermodel_get_link_action() != 28183 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composerupdate_text_update() != 64044 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composerupdate_menu_state() != 34033 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_wysiwyg_composer_checksum_method_composerupdate_menu_action() != 4209 {
+        return InitializationResult.apiChecksumMismatch
+    }
+
+    return InitializationResult.ok
+}
+
+private func uniffiEnsureInitialized() {
+    switch initializationResult {
+    case .ok:
+        break
+    case .contractVersionMismatch:
+        fatalError("UniFFI contract version mismatch: try cleaning and rebuilding your project")
+    case .apiChecksumMismatch:
+        fatalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
 }
