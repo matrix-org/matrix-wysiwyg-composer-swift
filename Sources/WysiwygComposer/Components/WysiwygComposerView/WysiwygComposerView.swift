@@ -17,11 +17,32 @@
 import OSLog
 import SwiftUI
 
+/// A protocol to implement in order to inform the composer if a specific item
+/// can be pasted into the application.
+public protocol WysiwygItemProviderHelper {
+    /// Determine if the item attached to given item provider can be pasted into the application.
+    ///
+    /// - Parameter itemProvider: The item provider.
+    /// - Returns: True if it can be pasted, false otherwise.
+    func isPasteSupported(for itemProvider: NSItemProvider) -> Bool
+}
+
+/// Handler for key commands.
+public typealias KeyCommandHandler = (WysiwygKeyCommand) -> Bool
+/// Handler for paste events.
+public typealias PasteHandler = (NSItemProvider) -> Void
+
 /// Provides a SwiftUI displayable view for the composer UITextView component.
 public struct WysiwygComposerView: UIViewRepresentable {
     // MARK: - Public
 
-    @Binding public var focused: Bool
+    /// A helper to determine if an item can be pasted into the hosting application.
+    /// If omitted, most non-text paste events will be ignored.
+    let itemProviderHelper: WysiwygItemProviderHelper?
+    /// A handler for key commands. If omitted, default behaviour will be applied. See `WysiwygKeyCommand.swift`.
+    let keyCommandHandler: KeyCommandHandler?
+    /// A handler for paste events. If omitted, the composer will try to paste content as raw text.
+    let pasteHandler: PasteHandler?
 
     // MARK: - Private
 
@@ -32,9 +53,13 @@ public struct WysiwygComposerView: UIViewRepresentable {
 
     // MARK: - Public
 
-    public init(focused: Binding<Bool>,
-                viewModel: WysiwygComposerViewModelProtocol) {
-        _focused = focused
+    public init(viewModel: WysiwygComposerViewModelProtocol,
+                itemProviderHelper: WysiwygItemProviderHelper?,
+                keyCommandHandler: KeyCommandHandler?,
+                pasteHandler: PasteHandler?) {
+        self.itemProviderHelper = itemProviderHelper
+        self.keyCommandHandler = keyCommandHandler
+        self.pasteHandler = pasteHandler
         self.viewModel = viewModel
     }
     
@@ -54,6 +79,7 @@ public struct WysiwygComposerView: UIViewRepresentable {
         textView.backgroundColor = .clear
         textView.tintColor = UIColor(tintColor)
         textView.clipsToBounds = false
+        textView.wysiwygDelegate = context.coordinator
         textView.placeholderFont = UIFont.preferredFont(forTextStyle: .body)
         textView.placeholderColor = UIColor(placeholderColor)
         textView.placeholder = placeholder
@@ -65,32 +91,43 @@ public struct WysiwygComposerView: UIViewRepresentable {
         uiView.tintColor = UIColor(tintColor)
         uiView.placeholderColor = UIColor(placeholderColor)
         uiView.placeholder = placeholder
-        
-        switch (focused, uiView.isFirstResponder) {
-        case (true, false): uiView.becomeFirstResponder()
-        case (false, true): uiView.resignFirstResponder()
-        default: break
-        }
     }
 
     public func makeCoordinator() -> Coordinator {
-        Coordinator($focused, viewModel.replaceText, viewModel.select, viewModel.didUpdateText)
+        Coordinator(viewModel.replaceText,
+                    viewModel.select,
+                    viewModel.didUpdateText,
+                    viewModel.enter,
+                    itemProviderHelper: itemProviderHelper,
+                    keyCommandHandler: keyCommandHandler,
+                    pasteHandler: pasteHandler)
     }
 
     /// Coordinates UIKit communication.
-    public class Coordinator: NSObject, UITextViewDelegate, NSTextStorageDelegate {
-        var focused: Binding<Bool>
+    public class Coordinator: NSObject, UITextViewDelegate, NSTextStorageDelegate, WysiwygTextViewDelegate {
         var replaceText: (NSRange, String) -> Bool
         var select: (NSRange) -> Void
         var didUpdateText: () -> Void
-        init(_ focused: Binding<Bool>,
-             _ replaceText: @escaping (NSRange, String) -> Bool,
+        var enter: () -> Void
+
+        private let itemProviderHelper: WysiwygItemProviderHelper?
+        private let keyCommandHandler: KeyCommandHandler?
+        private let pasteHandler: PasteHandler?
+
+        init(_ replaceText: @escaping (NSRange, String) -> Bool,
              _ select: @escaping (NSRange) -> Void,
-             _ didUpdateText: @escaping () -> Void) {
-            self.focused = focused
+             _ didUpdateText: @escaping () -> Void,
+             _ enter: @escaping () -> Void,
+             itemProviderHelper: WysiwygItemProviderHelper?,
+             keyCommandHandler: KeyCommandHandler?,
+             pasteHandler: PasteHandler?) {
             self.replaceText = replaceText
             self.select = select
             self.didUpdateText = didUpdateText
+            self.enter = enter
+            self.itemProviderHelper = itemProviderHelper
+            self.keyCommandHandler = keyCommandHandler
+            self.pasteHandler = pasteHandler
         }
 
         public func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
@@ -119,14 +156,6 @@ public struct WysiwygComposerView: UIViewRepresentable {
             select(textView.selectedRange)
         }
         
-        public func textViewDidBeginEditing(_ textView: UITextView) {
-            focused.wrappedValue = true
-        }
-        
-        public func textViewDidEndEditing(_ textView: UITextView) {
-            focused.wrappedValue = false
-        }
-        
         public func textView(_ textView: UITextView,
                              shouldInteractWith URL: URL,
                              in characterRange: NSRange,
@@ -136,6 +165,37 @@ public struct WysiwygComposerView: UIViewRepresentable {
             }
             textView.selectedRange = characterRange
             return false
+        }
+
+        func isPasteSupported(for itemProvider: NSItemProvider) -> Bool {
+            guard let itemProviderHelper else {
+                return false
+            }
+
+            return itemProviderHelper.isPasteSupported(for: itemProvider)
+        }
+
+        func textViewDidReceiveKeyCommand(_ textView: UITextView, keyCommand: WysiwygKeyCommand) {
+            if !handleKeyCommand(keyCommand) {
+                processDefault(for: keyCommand)
+            }
+        }
+
+        func textView(_ textView: UITextView, didReceivePasteWith provider: NSItemProvider) {
+            pasteHandler?(provider)
+        }
+
+        private func handleKeyCommand(_ keyCommand: WysiwygKeyCommand) -> Bool {
+            guard let keyCommandHandler else { return false }
+
+            return keyCommandHandler(keyCommand)
+        }
+
+        private func processDefault(for keyCommand: WysiwygKeyCommand) {
+            switch keyCommand {
+            case .enter, .shiftEnter:
+                enter()
+            }
         }
     }
 }
