@@ -856,6 +856,7 @@ public func FfiConverterTypeComposerModel_lower(_ value: ComposerModel) -> Unsaf
 }
 
 public protocol ComposerUpdateProtocol {
+    func linkAction() -> LinkActionUpdate
     func menuAction() -> MenuAction
     func menuState() -> MenuState
     func textUpdate() -> TextUpdate
@@ -873,6 +874,15 @@ public class ComposerUpdate: ComposerUpdateProtocol {
 
     deinit {
         try! rustCall { uniffi_uniffi_wysiwyg_composer_fn_free_composerupdate(pointer, $0) }
+    }
+
+    public func linkAction() -> LinkActionUpdate {
+        return try! FfiConverterTypeLinkActionUpdate.lift(
+            try!
+                rustCall {
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composerupdate_link_action(self.pointer, $0)
+                }
+        )
     }
 
     public func menuAction() -> MenuAction {
@@ -1376,6 +1386,51 @@ extension LinkAction: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+public enum LinkActionUpdate {
+    case keep
+    case update(linkAction: LinkAction)
+}
+
+public struct FfiConverterTypeLinkActionUpdate: FfiConverterRustBuffer {
+    typealias SwiftType = LinkActionUpdate
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> LinkActionUpdate {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .keep
+
+        case 2: return try .update(
+                linkAction: FfiConverterTypeLinkAction.read(from: &buf)
+            )
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: LinkActionUpdate, into buf: inout [UInt8]) {
+        switch value {
+        case .keep:
+            writeInt(&buf, Int32(1))
+
+        case let .update(linkAction):
+            writeInt(&buf, Int32(2))
+            FfiConverterTypeLinkAction.write(linkAction, into: &buf)
+        }
+    }
+}
+
+public func FfiConverterTypeLinkActionUpdate_lift(_ buf: RustBuffer) throws -> LinkActionUpdate {
+    return try FfiConverterTypeLinkActionUpdate.lift(buf)
+}
+
+public func FfiConverterTypeLinkActionUpdate_lower(_ value: LinkActionUpdate) -> RustBuffer {
+    return FfiConverterTypeLinkActionUpdate.lower(value)
+}
+
+extension LinkActionUpdate: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 public enum MenuAction {
     case keep
     case none
@@ -1796,6 +1851,9 @@ private var initializationResult: InitializationResult {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_unordered_list() != 28490 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composerupdate_link_action() != 4137 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_uniffi_wysiwyg_composer_checksum_method_composerupdate_menu_action() != 30532 {
