@@ -108,8 +108,8 @@ public class WysiwygComposerViewModel: WysiwygComposerViewModelProtocol, Observa
         if plainTextMode {
             _ = model.setContentFromMarkdown(markdown: computeMarkdownContent())
         }
-        return WysiwygComposerContent(markdown: model.getContentAsMarkdown(),
-                                      html: model.getContentAsHtml())
+        return WysiwygComposerContent(markdown: model.getContentAsMessageMarkdown(),
+                                      html: model.getContentAsMessageHtml())
     }
 
     // MARK: - Private
@@ -247,6 +247,18 @@ public extension WysiwygComposerViewModel {
             update = model.insertMention(url: url,
                                          text: name,
                                          attributes: mentionType.attributes)
+        }
+        applyUpdate(update)
+        hasPendingFormats = true
+    }
+    
+    /// Sets the @room mention at the suggestion position
+    func setAtRoomMention() {
+        let update: ComposerUpdate
+        if let suggestionPattern, suggestionPattern.key == .at {
+            update = model.insertAtRoomMentionAtSuggestion(suggestionPattern)
+        } else {
+            update = model.insertAtRoomMention()
         }
         applyUpdate(update)
         hasPendingFormats = true
