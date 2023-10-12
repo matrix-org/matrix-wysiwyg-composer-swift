@@ -54,7 +54,18 @@ extension WysiwygComposerViewModelTests {
         XCTAssertEqual(
             viewModel.content.html,
             """
-            <a data-mention-type="user" href="https://matrix.to/#/@alice:matrix.org" contenteditable="false">Alice</a>\u{00A0}
+            <a href="https://matrix.to/#/@alice:matrix.org">Alice</a>\u{00A0}
+            """
+        )
+    }
+    
+    func testAtRoomSuggestionCanBeUsed() {
+        _ = viewModel.replaceText(range: .zero, replacementText: "@ro")
+        viewModel.setAtRoomMention()
+        XCTAssertEqual(
+            viewModel.content.html,
+            """
+            @room\u{00A0}
             """
         )
     }
@@ -68,10 +79,25 @@ extension WysiwygComposerViewModelTests {
         XCTAssertEqual(
             viewModel.content.html,
             """
-            Text<a data-mention-type="user" href="https://matrix.to/#/@alice:matrix.org" contenteditable="false">Alice</a>\u{00A0}
+            Text<a href="https://matrix.to/#/@alice:matrix.org">Alice</a>\u{00A0}
             """
         )
     }
+    
+    func testAtRoomMentionWithNoSuggestion() {
+        _ = viewModel.replaceText(range: .zero, replacementText: "Text")
+        viewModel.select(range: .init(location: 0, length: 4))
+        viewModel.setAtRoomMention()
+        // Text is not removed, and the
+        // mention is added after the text
+        XCTAssertEqual(
+            viewModel.content.html,
+            """
+            Text@room\u{00A0}
+            """
+        )
+    }
+    
 
     func testAtMentionWithNoSuggestionAtLeading() {
         _ = viewModel.replaceText(range: .zero, replacementText: "Text")
@@ -81,7 +107,20 @@ extension WysiwygComposerViewModelTests {
         XCTAssertEqual(
             viewModel.content.html,
             """
-            <a data-mention-type="user" href="https://matrix.to/#/@alice:matrix.org" contenteditable="false">Alice</a>Text
+            <a href="https://matrix.to/#/@alice:matrix.org">Alice</a>Text
+            """
+        )
+    }
+    
+    func testAtRoomMentionWithNoSuggestionAtLeading() {
+        _ = viewModel.replaceText(range: .zero, replacementText: "Text")
+        viewModel.select(range: .init(location: 0, length: 0))
+        viewModel.setAtRoomMention()
+        // Text is not removed, and the mention is added before the text
+        XCTAssertEqual(
+            viewModel.content.html,
+            """
+            @roomText
             """
         )
     }
@@ -92,7 +131,7 @@ extension WysiwygComposerViewModelTests {
         XCTAssertEqual(
             viewModel.content.html,
             """
-            <a data-mention-type="room" href="https://matrix.to/#/#room1:matrix.org" contenteditable="false">Room 1</a>\u{00A0}
+            <a href="https://matrix.to/#/#room1:matrix.org">#room1:matrix.org</a>\u{00A0}
             """
         )
     }
@@ -104,7 +143,7 @@ extension WysiwygComposerViewModelTests {
         XCTAssertEqual(
             viewModel.content.html,
             """
-            Text<a data-mention-type="room" href="https://matrix.to/#/#room1:matrix.org" contenteditable="false">Room 1</a>\u{00A0}
+            Text<a href="https://matrix.to/#/#room1:matrix.org">#room1:matrix.org</a>\u{00A0}
             """
         )
     }
@@ -116,7 +155,7 @@ extension WysiwygComposerViewModelTests {
         XCTAssertEqual(
             viewModel.content.html,
             """
-            <a data-mention-type="room" href="https://matrix.to/#/#room1:matrix.org" contenteditable="false">Room 1</a>Text
+            <a href="https://matrix.to/#/#room1:matrix.org">#room1:matrix.org</a>Text
             """
         )
     }
