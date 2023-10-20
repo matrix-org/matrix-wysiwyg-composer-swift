@@ -100,6 +100,8 @@ RustBuffer uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_get_current_do
 );
 RustBuffer uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_get_link_action(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
 );
+RustBuffer uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_get_mentions_state(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+);
 void*_Nonnull uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_indent(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
 );
 void*_Nonnull uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_inline_code(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
@@ -222,6 +224,9 @@ uint16_t uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_get_curren
     
 );
 uint16_t uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_get_link_action(void
+    
+);
+uint16_t uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_get_mentions_state(void
     
 );
 uint16_t uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_indent(void
