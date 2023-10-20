@@ -320,6 +320,27 @@ private struct FfiConverterUInt32: FfiConverterPrimitive {
     }
 }
 
+private struct FfiConverterBool: FfiConverter {
+    typealias FfiType = Int8
+    typealias SwiftType = Bool
+
+    public static func lift(_ value: Int8) throws -> Bool {
+        return value != 0
+    }
+
+    public static func lower(_ value: Bool) -> Int8 {
+        return value ? 1 : 0
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Bool {
+        return try lift(readInt(&buf))
+    }
+
+    public static func write(_ value: Bool, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
 private struct FfiConverterString: FfiConverter {
     typealias SwiftType = String
     typealias FfiType = RustBuffer
@@ -375,6 +396,7 @@ public protocol ComposerModelProtocol {
     func getContentAsPlainText() -> String
     func getCurrentDomState() -> ComposerState
     func getLinkAction() -> LinkAction
+    func getMentionsState() -> MentionsState
     func indent() throws -> ComposerUpdate
     func inlineCode() throws -> ComposerUpdate
     func insertAtRoomMention() throws -> ComposerUpdate
@@ -557,6 +579,15 @@ public class ComposerModel: ComposerModelProtocol {
             try!
                 rustCall {
                     uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_get_link_action(self.pointer, $0)
+                }
+        )
+    }
+
+    public func getMentionsState() -> MentionsState {
+        return try! FfiConverterTypeMentionsState.lift(
+            try!
+                rustCall {
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_get_mentions_state(self.pointer, $0)
                 }
         )
     }
@@ -1059,6 +1090,73 @@ public func FfiConverterTypeComposerState_lift(_ buf: RustBuffer) throws -> Comp
 
 public func FfiConverterTypeComposerState_lower(_ value: ComposerState) -> RustBuffer {
     return FfiConverterTypeComposerState.lower(value)
+}
+
+public struct MentionsState {
+    public var userIds: [String]
+    public var roomIds: [String]
+    public var roomAliases: [String]
+    public var hasAtRoomMention: Bool
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(userIds: [String], roomIds: [String], roomAliases: [String], hasAtRoomMention: Bool) {
+        self.userIds = userIds
+        self.roomIds = roomIds
+        self.roomAliases = roomAliases
+        self.hasAtRoomMention = hasAtRoomMention
+    }
+}
+
+extension MentionsState: Equatable, Hashable {
+    public static func == (lhs: MentionsState, rhs: MentionsState) -> Bool {
+        if lhs.userIds != rhs.userIds {
+            return false
+        }
+        if lhs.roomIds != rhs.roomIds {
+            return false
+        }
+        if lhs.roomAliases != rhs.roomAliases {
+            return false
+        }
+        if lhs.hasAtRoomMention != rhs.hasAtRoomMention {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(userIds)
+        hasher.combine(roomIds)
+        hasher.combine(roomAliases)
+        hasher.combine(hasAtRoomMention)
+    }
+}
+
+public struct FfiConverterTypeMentionsState: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MentionsState {
+        return try MentionsState(
+            userIds: FfiConverterSequenceString.read(from: &buf),
+            roomIds: FfiConverterSequenceString.read(from: &buf),
+            roomAliases: FfiConverterSequenceString.read(from: &buf),
+            hasAtRoomMention: FfiConverterBool.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: MentionsState, into buf: inout [UInt8]) {
+        FfiConverterSequenceString.write(value.userIds, into: &buf)
+        FfiConverterSequenceString.write(value.roomIds, into: &buf)
+        FfiConverterSequenceString.write(value.roomAliases, into: &buf)
+        FfiConverterBool.write(value.hasAtRoomMention, into: &buf)
+    }
+}
+
+public func FfiConverterTypeMentionsState_lift(_ buf: RustBuffer) throws -> MentionsState {
+    return try FfiConverterTypeMentionsState.lift(buf)
+}
+
+public func FfiConverterTypeMentionsState_lower(_ value: MentionsState) -> RustBuffer {
+    return FfiConverterTypeMentionsState.lower(value)
 }
 
 public struct SuggestionPattern {
@@ -1655,6 +1753,28 @@ private struct FfiConverterSequenceUInt16: FfiConverterRustBuffer {
     }
 }
 
+private struct FfiConverterSequenceString: FfiConverterRustBuffer {
+    typealias SwiftType = [String]
+
+    public static func write(_ value: [String], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterString.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [String] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [String]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            try seq.append(FfiConverterString.read(from: &buf))
+        }
+        return seq
+    }
+}
+
 private struct FfiConverterSequenceTypeAttribute: FfiConverterRustBuffer {
     typealias SwiftType = [Attribute]
 
@@ -1773,6 +1893,9 @@ private var initializationResult: InitializationResult {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_get_link_action() != 2600 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_get_mentions_state() != 20232 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_indent() != 48116 {
