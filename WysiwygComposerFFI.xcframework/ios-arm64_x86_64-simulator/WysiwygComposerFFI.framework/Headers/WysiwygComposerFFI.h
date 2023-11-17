@@ -61,6 +61,8 @@ typedef struct RustCallStatus {
 
 // Callbacks for UniFFI Futures
 typedef void (*UniFfiFutureCallbackUInt8)(const void * _Nonnull, uint8_t, RustCallStatus);
+typedef void (*UniFfiFutureCallbackInt8)(const void * _Nonnull, int8_t, RustCallStatus);
+typedef void (*UniFfiFutureCallbackUnsafeMutableRawPointer)(const void * _Nonnull, void*_Nonnull, RustCallStatus);
 typedef void (*UniFfiFutureCallbackUnsafeMutableRawPointer)(const void * _Nonnull, void*_Nonnull, RustCallStatus);
 typedef void (*UniFfiFutureCallbackUnsafeMutableRawPointer)(const void * _Nonnull, void*_Nonnull, RustCallStatus);
 typedef void (*UniFfiFutureCallbackRustBuffer)(const void * _Nonnull, RustBuffer, RustCallStatus);
@@ -164,7 +166,14 @@ RustBuffer uniffi_uniffi_wysiwyg_composer_fn_method_composerupdate_menu_state(vo
 );
 RustBuffer uniffi_uniffi_wysiwyg_composer_fn_method_composerupdate_text_update(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
 );
+void uniffi_uniffi_wysiwyg_composer_fn_free_mentiondetector(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+);
+int8_t uniffi_uniffi_wysiwyg_composer_fn_method_mentiondetector_is_mention(void*_Nonnull ptr, RustBuffer url, RustCallStatus *_Nonnull out_status
+);
 void*_Nonnull uniffi_uniffi_wysiwyg_composer_fn_func_new_composer_model(RustCallStatus *_Nonnull out_status
+    
+);
+void*_Nonnull uniffi_uniffi_wysiwyg_composer_fn_func_new_mention_detector(RustCallStatus *_Nonnull out_status
     
 );
 RustBuffer ffi_wysiwyg_composer_rustbuffer_alloc(int32_t size, RustCallStatus *_Nonnull out_status
@@ -176,6 +185,9 @@ void ffi_wysiwyg_composer_rustbuffer_free(RustBuffer buf, RustCallStatus *_Nonnu
 RustBuffer ffi_wysiwyg_composer_rustbuffer_reserve(RustBuffer buf, int32_t additional, RustCallStatus *_Nonnull out_status
 );
 uint16_t uniffi_uniffi_wysiwyg_composer_checksum_func_new_composer_model(void
+    
+);
+uint16_t uniffi_uniffi_wysiwyg_composer_checksum_func_new_mention_detector(void
     
 );
 uint16_t uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_action_states(void
@@ -317,6 +329,9 @@ uint16_t uniffi_uniffi_wysiwyg_composer_checksum_method_composerupdate_menu_stat
     
 );
 uint16_t uniffi_uniffi_wysiwyg_composer_checksum_method_composerupdate_text_update(void
+    
+);
+uint16_t uniffi_uniffi_wysiwyg_composer_checksum_method_mentiondetector_is_mention(void
     
 );
 uint32_t ffi_wysiwyg_composer_uniffi_contract_version(void

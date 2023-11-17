@@ -982,6 +982,73 @@ public func FfiConverterTypeComposerUpdate_lower(_ value: ComposerUpdate) -> Uns
     return FfiConverterTypeComposerUpdate.lower(value)
 }
 
+public protocol MentionDetectorProtocol {
+    func isMention(url: String) -> Bool
+}
+
+public class MentionDetector: MentionDetectorProtocol {
+    fileprivate let pointer: UnsafeMutableRawPointer
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    deinit {
+        try! rustCall { uniffi_uniffi_wysiwyg_composer_fn_free_mentiondetector(pointer, $0) }
+    }
+
+    public func isMention(url: String) -> Bool {
+        return try! FfiConverterBool.lift(
+            try!
+                rustCall {
+                    uniffi_uniffi_wysiwyg_composer_fn_method_mentiondetector_is_mention(self.pointer,
+                                                                                        FfiConverterString.lower(url), $0)
+                }
+        )
+    }
+}
+
+public struct FfiConverterTypeMentionDetector: FfiConverter {
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = MentionDetector
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MentionDetector {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if ptr == nil {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: MentionDetector, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> MentionDetector {
+        return MentionDetector(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: MentionDetector) -> UnsafeMutableRawPointer {
+        return value.pointer
+    }
+}
+
+public func FfiConverterTypeMentionDetector_lift(_ pointer: UnsafeMutableRawPointer) throws -> MentionDetector {
+    return try FfiConverterTypeMentionDetector.lift(pointer)
+}
+
+public func FfiConverterTypeMentionDetector_lower(_ value: MentionDetector) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeMentionDetector.lower(value)
+}
+
 public struct Attribute {
     public var key: String
     public var value: String
@@ -1828,6 +1895,14 @@ public func newComposerModel() -> ComposerModel {
     )
 }
 
+public func newMentionDetector() -> MentionDetector {
+    return try! FfiConverterTypeMentionDetector.lift(
+        try! rustCall {
+            uniffi_uniffi_wysiwyg_composer_fn_func_new_mention_detector($0)
+        }
+    )
+}
+
 private enum InitializationResult {
     case ok
     case contractVersionMismatch
@@ -1845,6 +1920,9 @@ private var initializationResult: InitializationResult {
         return InitializationResult.contractVersionMismatch
     }
     if uniffi_uniffi_wysiwyg_composer_checksum_func_new_composer_model() != 61235 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_uniffi_wysiwyg_composer_checksum_func_new_mention_detector() != 30911 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_action_states() != 7578 {
@@ -1986,6 +2064,9 @@ private var initializationResult: InitializationResult {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_uniffi_wysiwyg_composer_checksum_method_composerupdate_text_update() != 40178 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_mentiondetector_is_mention() != 64462 {
         return InitializationResult.apiChecksumMismatch
     }
 
