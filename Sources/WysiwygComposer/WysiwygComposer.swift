@@ -19,13 +19,13 @@ private extension RustBuffer {
     }
 
     static func from(_ ptr: UnsafeBufferPointer<UInt8>) -> RustBuffer {
-        try! rustCall { ffi_wysiwyg_composer_rustbuffer_from_bytes(ForeignBytes(bufferPointer: ptr), $0) }
+        try! rustCall { ffi_uniffi_wysiwyg_composer_rustbuffer_from_bytes(ForeignBytes(bufferPointer: ptr), $0) }
     }
 
     // Frees the buffer in place.
     // The buffer must not be used after this is called.
     func deallocate() {
-        try! rustCall { ffi_wysiwyg_composer_rustbuffer_free(self, $0) }
+        try! rustCall { ffi_uniffi_wysiwyg_composer_rustbuffer_free(self, $0) }
     }
 }
 
@@ -224,6 +224,7 @@ private enum UniffiInternalError: LocalizedError {
 private let CALL_SUCCESS: Int8 = 0
 private let CALL_ERROR: Int8 = 1
 private let CALL_PANIC: Int8 = 2
+private let CALL_CANCELLED: Int8 = 3
 
 private extension RustCallStatus {
     init() {
@@ -286,6 +287,9 @@ private func uniffiCheckCallStatus(
             callStatus.errorBuf.deallocate()
             throw UniffiInternalError.rustPanic("Rust panic")
         }
+
+    case CALL_CANCELLED:
+        throw CancellationError()
 
     default:
         throw UniffiInternalError.unexpectedRustCallStatusCode
@@ -1913,43 +1917,43 @@ private enum InitializationResult {
 // the code inside is only computed once.
 private var initializationResult: InitializationResult {
     // Get the bindings contract version from our ComponentInterface
-    let bindings_contract_version = 22
+    let bindings_contract_version = 24
     // Get the scaffolding contract version by calling the into the dylib
-    let scaffolding_contract_version = ffi_wysiwyg_composer_uniffi_contract_version()
+    let scaffolding_contract_version = ffi_uniffi_wysiwyg_composer_uniffi_contract_version()
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_func_new_composer_model() != 61235 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_func_new_composer_model() != 7203 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_func_new_mention_detector() != 30911 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_func_new_mention_detector() != 53935 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_action_states() != 7578 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_action_states() != 7460 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_backspace() != 46658 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_backspace() != 48444 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_bold() != 23083 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_bold() != 22407 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_clear() != 38972 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_clear() != 13616 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_code_block() != 15363 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_code_block() != 3473 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_debug_panic() != 36233 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_delete() != 52228 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_delete() != 17999 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_delete_in() != 43004 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_delete_in() != 16959 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_enter() != 1368 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_enter() != 43153 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_get_content_as_html() != 55597 {
@@ -1967,73 +1971,73 @@ private var initializationResult: InitializationResult {
     if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_get_content_as_plain_text() != 37982 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_get_current_dom_state() != 14677 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_get_current_dom_state() != 49502 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_get_link_action() != 2600 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_get_link_action() != 34687 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_get_mentions_state() != 20232 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_get_mentions_state() != 41860 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_indent() != 48116 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_indent() != 35797 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_inline_code() != 62544 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_inline_code() != 51569 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_insert_at_room_mention() != 10288 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_insert_at_room_mention() != 1202 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_insert_at_room_mention_at_suggestion() != 3469 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_insert_at_room_mention_at_suggestion() != 62933 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_insert_mention() != 4346 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_insert_mention() != 60548 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_insert_mention_at_suggestion() != 14853 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_insert_mention_at_suggestion() != 38622 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_italic() != 49342 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_italic() != 38055 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_ordered_list() != 41846 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_ordered_list() != 6672 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_quote() != 4694 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_quote() != 16528 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_redo() != 19040 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_redo() != 39603 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_remove_links() != 34893 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_remove_links() != 7156 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_replace_text() != 41304 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_replace_text() != 57976 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_replace_text_in() != 30443 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_replace_text_in() != 8026 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_replace_text_suggestion() != 42367 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_replace_text_suggestion() != 52789 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_select() != 61542 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_select() != 60455 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_set_content_from_html() != 59898 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_set_content_from_html() != 32547 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_set_content_from_markdown() != 8457 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_set_content_from_markdown() != 58669 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_set_link() != 1977 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_set_link() != 9272 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_set_link_with_text() != 36637 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_set_link_with_text() != 57873 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_strike_through() != 57768 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_strike_through() != 41280 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_to_example_format() != 41787 {
@@ -2042,28 +2046,28 @@ private var initializationResult: InitializationResult {
     if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_to_tree() != 48533 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_underline() != 47132 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_underline() != 53097 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_undo() != 57508 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_undo() != 53423 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_unindent() != 14918 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_unindent() != 56864 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_unordered_list() != 28490 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_unordered_list() != 31431 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composerupdate_link_action() != 4137 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composerupdate_link_action() != 32159 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composerupdate_menu_action() != 30532 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composerupdate_menu_action() != 53154 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composerupdate_menu_state() != 64348 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composerupdate_menu_state() != 34030 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composerupdate_text_update() != 40178 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composerupdate_text_update() != 33796 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_uniffi_wysiwyg_composer_checksum_method_mentiondetector_is_mention() != 64462 {
