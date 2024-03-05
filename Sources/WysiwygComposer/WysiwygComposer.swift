@@ -289,7 +289,7 @@ private func uniffiCheckCallStatus(
         }
 
     case CALL_CANCELLED:
-        throw CancellationError()
+        fatalError("Cancellation not supported yet")
 
     default:
         throw UniffiInternalError.unexpectedRustCallStatusCode
@@ -383,53 +383,114 @@ private struct FfiConverterString: FfiConverter {
     }
 }
 
-public protocol ComposerModelProtocol {
+public protocol ComposerModelProtocol: AnyObject {
     func actionStates() -> [ComposerAction: ActionState]
+
     func backspace() throws -> ComposerUpdate
+
     func bold() throws -> ComposerUpdate
+
     func clear() throws -> ComposerUpdate
+
     func codeBlock() throws -> ComposerUpdate
+
+    /**
+     * Force a panic for test purposes
+     */
     func debugPanic()
+
     func delete() throws -> ComposerUpdate
+
     func deleteIn(start: UInt32, end: UInt32) throws -> ComposerUpdate
+
     func enter() throws -> ComposerUpdate
+
     func getContentAsHtml() -> String
+
     func getContentAsMarkdown() -> String
+
     func getContentAsMessageHtml() -> String
+
     func getContentAsMessageMarkdown() -> String
+
     func getContentAsPlainText() -> String
+
     func getCurrentDomState() -> ComposerState
+
     func getLinkAction() -> LinkAction
+
     func getMentionsState() -> MentionsState
+
     func indent() throws -> ComposerUpdate
+
     func inlineCode() throws -> ComposerUpdate
+
+    /**
+     * Creates an at-room mention node and inserts it into the composer at the current selection
+     */
     func insertAtRoomMention() throws -> ComposerUpdate
+
+    /**
+     * Creates an at-room mention node and inserts it into the composer, replacing the
+     * text content defined by the suggestion
+     */
     func insertAtRoomMentionAtSuggestion(suggestion: SuggestionPattern) throws -> ComposerUpdate
+
+    /**
+     * Creates a mention node and inserts it into the composer at the current selection
+     */
     func insertMention(url: String, text: String, attributes: [Attribute]) throws -> ComposerUpdate
+
+    /**
+     * Creates a mention node and inserts it into the composer, replacing the
+     * text content defined by the suggestion
+     */
     func insertMentionAtSuggestion(url: String, text: String, suggestion: SuggestionPattern, attributes: [Attribute]) throws -> ComposerUpdate
+
     func italic() throws -> ComposerUpdate
+
     func orderedList() throws -> ComposerUpdate
+
     func quote() throws -> ComposerUpdate
+
     func redo() throws -> ComposerUpdate
+
     func removeLinks() throws -> ComposerUpdate
+
     func replaceText(newText: String) throws -> ComposerUpdate
+
     func replaceTextIn(newText: String, start: UInt32, end: UInt32) throws -> ComposerUpdate
+
     func replaceTextSuggestion(newText: String, suggestion: SuggestionPattern) throws -> ComposerUpdate
+
     func select(startUtf16Codeunit: UInt32, endUtf16Codeunit: UInt32) throws -> ComposerUpdate
+
     func setContentFromHtml(html: String) throws -> ComposerUpdate
+
     func setContentFromMarkdown(markdown: String) throws -> ComposerUpdate
+
     func setLink(url: String, attributes: [Attribute]) throws -> ComposerUpdate
+
     func setLinkWithText(url: String, text: String, attributes: [Attribute]) throws -> ComposerUpdate
+
     func strikeThrough() throws -> ComposerUpdate
+
     func toExampleFormat() -> String
+
     func toTree() -> String
+
     func underline() throws -> ComposerUpdate
+
     func undo() throws -> ComposerUpdate
+
     func unindent() throws -> ComposerUpdate
+
     func unorderedList() throws -> ComposerUpdate
 }
 
-public class ComposerModel: ComposerModelProtocol {
+public class ComposerModel:
+    ComposerModelProtocol
+{
     fileprivate let pointer: UnsafeMutableRawPointer
 
     // TODO: We'd like this to be `private` but for Swifty reasons,
@@ -437,6 +498,10 @@ public class ComposerModel: ComposerModelProtocol {
     // make it `required` without making it `public`.
     required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
         self.pointer = pointer
+    }
+
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_uniffi_wysiwyg_composer_fn_clone_composermodel(self.pointer, $0) }
     }
 
     deinit {
@@ -447,7 +512,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterDictionaryTypeComposerActionTypeActionState.lift(
             try!
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_action_states(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_action_states(self.uniffiClonePointer(), $0)
                 }
         )
     }
@@ -456,7 +521,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_backspace(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_backspace(self.uniffiClonePointer(), $0)
                 }
         )
     }
@@ -465,7 +530,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_bold(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_bold(self.uniffiClonePointer(), $0)
                 }
         )
     }
@@ -474,7 +539,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_clear(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_clear(self.uniffiClonePointer(), $0)
                 }
         )
     }
@@ -483,15 +548,18 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_code_block(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_code_block(self.uniffiClonePointer(), $0)
                 }
         )
     }
 
+    /**
+     * Force a panic for test purposes
+     */
     public func debugPanic() {
         try!
             rustCall {
-                uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_debug_panic(self.pointer, $0)
+                uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_debug_panic(self.uniffiClonePointer(), $0)
             }
     }
 
@@ -499,7 +567,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_delete(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_delete(self.uniffiClonePointer(), $0)
                 }
         )
     }
@@ -508,7 +576,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_delete_in(self.pointer,
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_delete_in(self.uniffiClonePointer(),
                                                                                      FfiConverterUInt32.lower(start),
                                                                                      FfiConverterUInt32.lower(end), $0)
                 }
@@ -519,7 +587,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_enter(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_enter(self.uniffiClonePointer(), $0)
                 }
         )
     }
@@ -528,7 +596,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterString.lift(
             try!
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_get_content_as_html(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_get_content_as_html(self.uniffiClonePointer(), $0)
                 }
         )
     }
@@ -537,7 +605,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterString.lift(
             try!
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_get_content_as_markdown(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_get_content_as_markdown(self.uniffiClonePointer(), $0)
                 }
         )
     }
@@ -546,7 +614,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterString.lift(
             try!
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_get_content_as_message_html(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_get_content_as_message_html(self.uniffiClonePointer(), $0)
                 }
         )
     }
@@ -555,7 +623,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterString.lift(
             try!
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_get_content_as_message_markdown(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_get_content_as_message_markdown(self.uniffiClonePointer(), $0)
                 }
         )
     }
@@ -564,7 +632,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterString.lift(
             try!
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_get_content_as_plain_text(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_get_content_as_plain_text(self.uniffiClonePointer(), $0)
                 }
         )
     }
@@ -573,7 +641,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterTypeComposerState.lift(
             try!
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_get_current_dom_state(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_get_current_dom_state(self.uniffiClonePointer(), $0)
                 }
         )
     }
@@ -582,7 +650,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterTypeLinkAction.lift(
             try!
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_get_link_action(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_get_link_action(self.uniffiClonePointer(), $0)
                 }
         )
     }
@@ -591,7 +659,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterTypeMentionsState.lift(
             try!
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_get_mentions_state(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_get_mentions_state(self.uniffiClonePointer(), $0)
                 }
         )
     }
@@ -600,7 +668,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_indent(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_indent(self.uniffiClonePointer(), $0)
                 }
         )
     }
@@ -609,35 +677,45 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_inline_code(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_inline_code(self.uniffiClonePointer(), $0)
                 }
         )
     }
 
+    /**
+     * Creates an at-room mention node and inserts it into the composer at the current selection
+     */
     public func insertAtRoomMention() throws -> ComposerUpdate {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_insert_at_room_mention(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_insert_at_room_mention(self.uniffiClonePointer(), $0)
                 }
         )
     }
 
+    /**
+     * Creates an at-room mention node and inserts it into the composer, replacing the
+     * text content defined by the suggestion
+     */
     public func insertAtRoomMentionAtSuggestion(suggestion: SuggestionPattern) throws -> ComposerUpdate {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_insert_at_room_mention_at_suggestion(self.pointer,
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_insert_at_room_mention_at_suggestion(self.uniffiClonePointer(),
                                                                                                                 FfiConverterTypeSuggestionPattern.lower(suggestion), $0)
                 }
         )
     }
 
+    /**
+     * Creates a mention node and inserts it into the composer at the current selection
+     */
     public func insertMention(url: String, text: String, attributes: [Attribute]) throws -> ComposerUpdate {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_insert_mention(self.pointer,
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_insert_mention(self.uniffiClonePointer(),
                                                                                           FfiConverterString.lower(url),
                                                                                           FfiConverterString.lower(text),
                                                                                           FfiConverterSequenceTypeAttribute.lower(attributes), $0)
@@ -645,11 +723,15 @@ public class ComposerModel: ComposerModelProtocol {
         )
     }
 
+    /**
+     * Creates a mention node and inserts it into the composer, replacing the
+     * text content defined by the suggestion
+     */
     public func insertMentionAtSuggestion(url: String, text: String, suggestion: SuggestionPattern, attributes: [Attribute]) throws -> ComposerUpdate {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_insert_mention_at_suggestion(self.pointer,
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_insert_mention_at_suggestion(self.uniffiClonePointer(),
                                                                                                         FfiConverterString.lower(url),
                                                                                                         FfiConverterString.lower(text),
                                                                                                         FfiConverterTypeSuggestionPattern.lower(suggestion),
@@ -662,7 +744,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_italic(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_italic(self.uniffiClonePointer(), $0)
                 }
         )
     }
@@ -671,7 +753,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_ordered_list(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_ordered_list(self.uniffiClonePointer(), $0)
                 }
         )
     }
@@ -680,7 +762,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_quote(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_quote(self.uniffiClonePointer(), $0)
                 }
         )
     }
@@ -689,7 +771,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_redo(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_redo(self.uniffiClonePointer(), $0)
                 }
         )
     }
@@ -698,7 +780,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_remove_links(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_remove_links(self.uniffiClonePointer(), $0)
                 }
         )
     }
@@ -707,7 +789,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_replace_text(self.pointer,
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_replace_text(self.uniffiClonePointer(),
                                                                                         FfiConverterString.lower(newText), $0)
                 }
         )
@@ -717,7 +799,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_replace_text_in(self.pointer,
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_replace_text_in(self.uniffiClonePointer(),
                                                                                            FfiConverterString.lower(newText),
                                                                                            FfiConverterUInt32.lower(start),
                                                                                            FfiConverterUInt32.lower(end), $0)
@@ -729,7 +811,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_replace_text_suggestion(self.pointer,
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_replace_text_suggestion(self.uniffiClonePointer(),
                                                                                                    FfiConverterString.lower(newText),
                                                                                                    FfiConverterTypeSuggestionPattern.lower(suggestion), $0)
                 }
@@ -740,7 +822,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_select(self.pointer,
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_select(self.uniffiClonePointer(),
                                                                                   FfiConverterUInt32.lower(startUtf16Codeunit),
                                                                                   FfiConverterUInt32.lower(endUtf16Codeunit), $0)
                 }
@@ -750,7 +832,7 @@ public class ComposerModel: ComposerModelProtocol {
     public func setContentFromHtml(html: String) throws -> ComposerUpdate {
         return try FfiConverterTypeComposerUpdate.lift(
             rustCallWithError(FfiConverterTypeDomCreationError.lift) {
-                uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_set_content_from_html(self.pointer,
+                uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_set_content_from_html(self.uniffiClonePointer(),
                                                                                              FfiConverterString.lower(html), $0)
             }
         )
@@ -759,7 +841,7 @@ public class ComposerModel: ComposerModelProtocol {
     public func setContentFromMarkdown(markdown: String) throws -> ComposerUpdate {
         return try FfiConverterTypeComposerUpdate.lift(
             rustCallWithError(FfiConverterTypeDomCreationError.lift) {
-                uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_set_content_from_markdown(self.pointer,
+                uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_set_content_from_markdown(self.uniffiClonePointer(),
                                                                                                  FfiConverterString.lower(markdown), $0)
             }
         )
@@ -769,7 +851,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_set_link(self.pointer,
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_set_link(self.uniffiClonePointer(),
                                                                                     FfiConverterString.lower(url),
                                                                                     FfiConverterSequenceTypeAttribute.lower(attributes), $0)
                 }
@@ -780,7 +862,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_set_link_with_text(self.pointer,
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_set_link_with_text(self.uniffiClonePointer(),
                                                                                               FfiConverterString.lower(url),
                                                                                               FfiConverterString.lower(text),
                                                                                               FfiConverterSequenceTypeAttribute.lower(attributes), $0)
@@ -792,7 +874,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_strike_through(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_strike_through(self.uniffiClonePointer(), $0)
                 }
         )
     }
@@ -801,7 +883,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterString.lift(
             try!
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_to_example_format(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_to_example_format(self.uniffiClonePointer(), $0)
                 }
         )
     }
@@ -810,7 +892,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try! FfiConverterString.lift(
             try!
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_to_tree(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_to_tree(self.uniffiClonePointer(), $0)
                 }
         )
     }
@@ -819,7 +901,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_underline(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_underline(self.uniffiClonePointer(), $0)
                 }
         )
     }
@@ -828,7 +910,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_undo(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_undo(self.uniffiClonePointer(), $0)
                 }
         )
     }
@@ -837,7 +919,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_unindent(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_unindent(self.uniffiClonePointer(), $0)
                 }
         )
     }
@@ -846,7 +928,7 @@ public class ComposerModel: ComposerModelProtocol {
         return try FfiConverterTypeComposerUpdate.lift(
             try
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_unordered_list(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composermodel_unordered_list(self.uniffiClonePointer(), $0)
                 }
         )
     }
@@ -855,6 +937,14 @@ public class ComposerModel: ComposerModelProtocol {
 public struct FfiConverterTypeComposerModel: FfiConverter {
     typealias FfiType = UnsafeMutableRawPointer
     typealias SwiftType = ComposerModel
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> ComposerModel {
+        return ComposerModel(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: ComposerModel) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ComposerModel {
         let v: UInt64 = try readInt(&buf)
@@ -872,14 +962,6 @@ public struct FfiConverterTypeComposerModel: FfiConverter {
         // The Rust code won't compile if a pointer won't fit in a `UInt64`.
         writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
     }
-
-    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> ComposerModel {
-        return ComposerModel(unsafeFromRawPointer: pointer)
-    }
-
-    public static func lower(_ value: ComposerModel) -> UnsafeMutableRawPointer {
-        return value.pointer
-    }
 }
 
 public func FfiConverterTypeComposerModel_lift(_ pointer: UnsafeMutableRawPointer) throws -> ComposerModel {
@@ -890,14 +972,19 @@ public func FfiConverterTypeComposerModel_lower(_ value: ComposerModel) -> Unsaf
     return FfiConverterTypeComposerModel.lower(value)
 }
 
-public protocol ComposerUpdateProtocol {
+public protocol ComposerUpdateProtocol: AnyObject {
     func linkAction() -> LinkActionUpdate
+
     func menuAction() -> MenuAction
+
     func menuState() -> MenuState
+
     func textUpdate() -> TextUpdate
 }
 
-public class ComposerUpdate: ComposerUpdateProtocol {
+public class ComposerUpdate:
+    ComposerUpdateProtocol
+{
     fileprivate let pointer: UnsafeMutableRawPointer
 
     // TODO: We'd like this to be `private` but for Swifty reasons,
@@ -905,6 +992,10 @@ public class ComposerUpdate: ComposerUpdateProtocol {
     // make it `required` without making it `public`.
     required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
         self.pointer = pointer
+    }
+
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_uniffi_wysiwyg_composer_fn_clone_composerupdate(self.pointer, $0) }
     }
 
     deinit {
@@ -915,7 +1006,7 @@ public class ComposerUpdate: ComposerUpdateProtocol {
         return try! FfiConverterTypeLinkActionUpdate.lift(
             try!
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composerupdate_link_action(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composerupdate_link_action(self.uniffiClonePointer(), $0)
                 }
         )
     }
@@ -924,7 +1015,7 @@ public class ComposerUpdate: ComposerUpdateProtocol {
         return try! FfiConverterTypeMenuAction.lift(
             try!
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composerupdate_menu_action(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composerupdate_menu_action(self.uniffiClonePointer(), $0)
                 }
         )
     }
@@ -933,7 +1024,7 @@ public class ComposerUpdate: ComposerUpdateProtocol {
         return try! FfiConverterTypeMenuState.lift(
             try!
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composerupdate_menu_state(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composerupdate_menu_state(self.uniffiClonePointer(), $0)
                 }
         )
     }
@@ -942,7 +1033,7 @@ public class ComposerUpdate: ComposerUpdateProtocol {
         return try! FfiConverterTypeTextUpdate.lift(
             try!
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_composerupdate_text_update(self.pointer, $0)
+                    uniffi_uniffi_wysiwyg_composer_fn_method_composerupdate_text_update(self.uniffiClonePointer(), $0)
                 }
         )
     }
@@ -951,6 +1042,14 @@ public class ComposerUpdate: ComposerUpdateProtocol {
 public struct FfiConverterTypeComposerUpdate: FfiConverter {
     typealias FfiType = UnsafeMutableRawPointer
     typealias SwiftType = ComposerUpdate
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> ComposerUpdate {
+        return ComposerUpdate(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: ComposerUpdate) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ComposerUpdate {
         let v: UInt64 = try readInt(&buf)
@@ -968,14 +1067,6 @@ public struct FfiConverterTypeComposerUpdate: FfiConverter {
         // The Rust code won't compile if a pointer won't fit in a `UInt64`.
         writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
     }
-
-    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> ComposerUpdate {
-        return ComposerUpdate(unsafeFromRawPointer: pointer)
-    }
-
-    public static func lower(_ value: ComposerUpdate) -> UnsafeMutableRawPointer {
-        return value.pointer
-    }
 }
 
 public func FfiConverterTypeComposerUpdate_lift(_ pointer: UnsafeMutableRawPointer) throws -> ComposerUpdate {
@@ -986,11 +1077,13 @@ public func FfiConverterTypeComposerUpdate_lower(_ value: ComposerUpdate) -> Uns
     return FfiConverterTypeComposerUpdate.lower(value)
 }
 
-public protocol MentionDetectorProtocol {
+public protocol MentionDetectorProtocol: AnyObject {
     func isMention(url: String) -> Bool
 }
 
-public class MentionDetector: MentionDetectorProtocol {
+public class MentionDetector:
+    MentionDetectorProtocol
+{
     fileprivate let pointer: UnsafeMutableRawPointer
 
     // TODO: We'd like this to be `private` but for Swifty reasons,
@@ -998,6 +1091,10 @@ public class MentionDetector: MentionDetectorProtocol {
     // make it `required` without making it `public`.
     required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
         self.pointer = pointer
+    }
+
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_uniffi_wysiwyg_composer_fn_clone_mentiondetector(self.pointer, $0) }
     }
 
     deinit {
@@ -1008,7 +1105,7 @@ public class MentionDetector: MentionDetectorProtocol {
         return try! FfiConverterBool.lift(
             try!
                 rustCall {
-                    uniffi_uniffi_wysiwyg_composer_fn_method_mentiondetector_is_mention(self.pointer,
+                    uniffi_uniffi_wysiwyg_composer_fn_method_mentiondetector_is_mention(self.uniffiClonePointer(),
                                                                                         FfiConverterString.lower(url), $0)
                 }
         )
@@ -1018,6 +1115,14 @@ public class MentionDetector: MentionDetectorProtocol {
 public struct FfiConverterTypeMentionDetector: FfiConverter {
     typealias FfiType = UnsafeMutableRawPointer
     typealias SwiftType = MentionDetector
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> MentionDetector {
+        return MentionDetector(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: MentionDetector) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MentionDetector {
         let v: UInt64 = try readInt(&buf)
@@ -1035,14 +1140,6 @@ public struct FfiConverterTypeMentionDetector: FfiConverter {
         // The Rust code won't compile if a pointer won't fit in a `UInt64`.
         writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
     }
-
-    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> MentionDetector {
-        return MentionDetector(unsafeFromRawPointer: pointer)
-    }
-
-    public static func lower(_ value: MentionDetector) -> UnsafeMutableRawPointer {
-        return value.pointer
-    }
 }
 
 public func FfiConverterTypeMentionDetector_lift(_ pointer: UnsafeMutableRawPointer) throws -> MentionDetector {
@@ -1059,7 +1156,10 @@ public struct Attribute {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(key: String, value: String) {
+    public init(
+        key: String,
+        value: String
+    ) {
         self.key = key
         self.value = value
     }
@@ -1084,10 +1184,11 @@ extension Attribute: Equatable, Hashable {
 
 public struct FfiConverterTypeAttribute: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Attribute {
-        return try Attribute(
-            key: FfiConverterString.read(from: &buf),
-            value: FfiConverterString.read(from: &buf)
-        )
+        return
+            try Attribute(
+                key: FfiConverterString.read(from: &buf),
+                value: FfiConverterString.read(from: &buf)
+            )
     }
 
     public static func write(_ value: Attribute, into buf: inout [UInt8]) {
@@ -1111,7 +1212,11 @@ public struct ComposerState {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(html: [UInt16], start: UInt32, end: UInt32) {
+    public init(
+        html: [UInt16],
+        start: UInt32,
+        end: UInt32
+    ) {
         self.html = html
         self.start = start
         self.end = end
@@ -1141,11 +1246,12 @@ extension ComposerState: Equatable, Hashable {
 
 public struct FfiConverterTypeComposerState: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ComposerState {
-        return try ComposerState(
-            html: FfiConverterSequenceUInt16.read(from: &buf),
-            start: FfiConverterUInt32.read(from: &buf),
-            end: FfiConverterUInt32.read(from: &buf)
-        )
+        return
+            try ComposerState(
+                html: FfiConverterSequenceUInt16.read(from: &buf),
+                start: FfiConverterUInt32.read(from: &buf),
+                end: FfiConverterUInt32.read(from: &buf)
+            )
     }
 
     public static func write(_ value: ComposerState, into buf: inout [UInt8]) {
@@ -1171,7 +1277,12 @@ public struct MentionsState {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(userIds: [String], roomIds: [String], roomAliases: [String], hasAtRoomMention: Bool) {
+    public init(
+        userIds: [String],
+        roomIds: [String],
+        roomAliases: [String],
+        hasAtRoomMention: Bool
+    ) {
         self.userIds = userIds
         self.roomIds = roomIds
         self.roomAliases = roomAliases
@@ -1206,12 +1317,13 @@ extension MentionsState: Equatable, Hashable {
 
 public struct FfiConverterTypeMentionsState: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MentionsState {
-        return try MentionsState(
-            userIds: FfiConverterSequenceString.read(from: &buf),
-            roomIds: FfiConverterSequenceString.read(from: &buf),
-            roomAliases: FfiConverterSequenceString.read(from: &buf),
-            hasAtRoomMention: FfiConverterBool.read(from: &buf)
-        )
+        return
+            try MentionsState(
+                userIds: FfiConverterSequenceString.read(from: &buf),
+                roomIds: FfiConverterSequenceString.read(from: &buf),
+                roomAliases: FfiConverterSequenceString.read(from: &buf),
+                hasAtRoomMention: FfiConverterBool.read(from: &buf)
+            )
     }
 
     public static func write(_ value: MentionsState, into buf: inout [UInt8]) {
@@ -1238,7 +1350,12 @@ public struct SuggestionPattern {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(key: PatternKey, text: String, start: UInt32, end: UInt32) {
+    public init(
+        key: PatternKey,
+        text: String,
+        start: UInt32,
+        end: UInt32
+    ) {
         self.key = key
         self.text = text
         self.start = start
@@ -1273,12 +1390,13 @@ extension SuggestionPattern: Equatable, Hashable {
 
 public struct FfiConverterTypeSuggestionPattern: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SuggestionPattern {
-        return try SuggestionPattern(
-            key: FfiConverterTypePatternKey.read(from: &buf),
-            text: FfiConverterString.read(from: &buf),
-            start: FfiConverterUInt32.read(from: &buf),
-            end: FfiConverterUInt32.read(from: &buf)
-        )
+        return
+            try SuggestionPattern(
+                key: FfiConverterTypePatternKey.read(from: &buf),
+                text: FfiConverterString.read(from: &buf),
+                start: FfiConverterUInt32.read(from: &buf),
+                end: FfiConverterUInt32.read(from: &buf)
+            )
     }
 
     public static func write(_ value: SuggestionPattern, into buf: inout [UInt8]) {
@@ -1501,7 +1619,9 @@ extension DomCreationError: Error {}
 public enum LinkAction {
     case createWithText
     case create
-    case edit(url: String)
+    case edit(
+        url: String
+    )
     case disabled
 }
 
@@ -1557,7 +1677,9 @@ extension LinkAction: Equatable, Hashable {}
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 public enum LinkActionUpdate {
     case keep
-    case update(linkAction: LinkAction)
+    case update(
+        linkAction: LinkAction
+    )
 }
 
 public struct FfiConverterTypeLinkActionUpdate: FfiConverterRustBuffer {
@@ -1603,7 +1725,9 @@ extension LinkActionUpdate: Equatable, Hashable {}
 public enum MenuAction {
     case keep
     case none
-    case suggestion(suggestionPattern: SuggestionPattern)
+    case suggestion(
+        suggestionPattern: SuggestionPattern
+    )
 }
 
 public struct FfiConverterTypeMenuAction: FfiConverterRustBuffer {
@@ -1653,7 +1777,9 @@ extension MenuAction: Equatable, Hashable {}
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 public enum MenuState {
     case keep
-    case update(actionStates: [ComposerAction: ActionState])
+    case update(
+        actionStates: [ComposerAction: ActionState]
+    )
 }
 
 public struct FfiConverterTypeMenuState: FfiConverterRustBuffer {
@@ -1746,8 +1872,15 @@ extension PatternKey: Equatable, Hashable {}
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 public enum TextUpdate {
     case keep
-    case replaceAll(replacementHtml: [UInt16], startUtf16Codeunit: UInt32, endUtf16Codeunit: UInt32)
-    case select(startUtf16Codeunit: UInt32, endUtf16Codeunit: UInt32)
+    case replaceAll(
+        replacementHtml: [UInt16],
+        startUtf16Codeunit: UInt32,
+        endUtf16Codeunit: UInt32
+    )
+    case select(
+        startUtf16Codeunit: UInt32,
+        endUtf16Codeunit: UInt32
+    )
 }
 
 public struct FfiConverterTypeTextUpdate: FfiConverterRustBuffer {
@@ -1917,160 +2050,160 @@ private enum InitializationResult {
 // the code inside is only computed once.
 private var initializationResult: InitializationResult {
     // Get the bindings contract version from our ComponentInterface
-    let bindings_contract_version = 24
+    let bindings_contract_version = 25
     // Get the scaffolding contract version by calling the into the dylib
     let scaffolding_contract_version = ffi_uniffi_wysiwyg_composer_uniffi_contract_version()
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_func_new_composer_model() != 7203 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_func_new_composer_model() != 30448 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_func_new_mention_detector() != 53935 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_func_new_mention_detector() != 63920 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_action_states() != 7460 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_action_states() != 27711 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_backspace() != 48444 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_backspace() != 57459 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_bold() != 22407 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_bold() != 15978 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_clear() != 13616 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_clear() != 64366 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_code_block() != 3473 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_code_block() != 10362 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_debug_panic() != 36233 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_debug_panic() != 56388 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_delete() != 17999 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_delete() != 62148 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_delete_in() != 16959 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_delete_in() != 19628 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_enter() != 43153 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_enter() != 58573 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_get_content_as_html() != 55597 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_get_content_as_html() != 62453 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_get_content_as_markdown() != 59485 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_get_content_as_markdown() != 63816 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_get_content_as_message_html() != 53003 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_get_content_as_message_html() != 15576 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_get_content_as_message_markdown() != 20680 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_get_content_as_message_markdown() != 26324 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_get_content_as_plain_text() != 37982 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_get_content_as_plain_text() != 58655 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_get_current_dom_state() != 49502 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_get_current_dom_state() != 56781 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_get_link_action() != 34687 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_get_link_action() != 42165 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_get_mentions_state() != 41860 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_get_mentions_state() != 7199 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_indent() != 35797 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_indent() != 41677 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_inline_code() != 51569 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_inline_code() != 23210 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_insert_at_room_mention() != 1202 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_insert_at_room_mention() != 6293 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_insert_at_room_mention_at_suggestion() != 62933 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_insert_at_room_mention_at_suggestion() != 198 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_insert_mention() != 60548 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_insert_mention() != 25953 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_insert_mention_at_suggestion() != 38622 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_insert_mention_at_suggestion() != 28444 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_italic() != 38055 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_italic() != 48135 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_ordered_list() != 6672 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_ordered_list() != 18307 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_quote() != 16528 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_quote() != 19036 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_redo() != 39603 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_redo() != 64278 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_remove_links() != 7156 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_remove_links() != 37715 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_replace_text() != 57976 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_replace_text() != 26154 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_replace_text_in() != 8026 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_replace_text_in() != 26973 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_replace_text_suggestion() != 52789 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_replace_text_suggestion() != 62641 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_select() != 60455 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_select() != 39648 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_set_content_from_html() != 32547 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_set_content_from_html() != 56506 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_set_content_from_markdown() != 58669 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_set_content_from_markdown() != 15667 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_set_link() != 9272 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_set_link() != 31503 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_set_link_with_text() != 57873 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_set_link_with_text() != 6610 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_strike_through() != 41280 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_strike_through() != 34000 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_to_example_format() != 41787 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_to_example_format() != 26875 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_to_tree() != 48533 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_to_tree() != 18878 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_underline() != 53097 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_underline() != 59621 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_undo() != 53423 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_undo() != 64143 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_unindent() != 56864 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_unindent() != 29075 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_unordered_list() != 31431 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composermodel_unordered_list() != 16548 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composerupdate_link_action() != 32159 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composerupdate_link_action() != 39435 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composerupdate_menu_action() != 53154 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composerupdate_menu_action() != 23836 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composerupdate_menu_state() != 34030 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composerupdate_menu_state() != 58128 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_composerupdate_text_update() != 33796 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_composerupdate_text_update() != 51153 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_uniffi_wysiwyg_composer_checksum_method_mentiondetector_is_mention() != 64462 {
+    if uniffi_uniffi_wysiwyg_composer_checksum_method_mentiondetector_is_mention() != 1078 {
         return InitializationResult.apiChecksumMismatch
     }
 
