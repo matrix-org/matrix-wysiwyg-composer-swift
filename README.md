@@ -1,5 +1,7 @@
 # WysiwygComposer
 
+**NOTE: This package is deprecated and replaced by [matrix-org/matrix-rich-text-editor-swift](https://github.com/matrix-org/matrix-rich-text-editor-swift)**
+
 This package contains most of the source code powering our rich text editor.
 
 It is composed of: 
